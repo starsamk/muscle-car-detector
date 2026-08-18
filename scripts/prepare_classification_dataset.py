@@ -15,6 +15,15 @@ from typing import Any, Final, Iterable
 
 from PIL import Image, UnidentifiedImageError
 
+from dataset_config import (
+    DEFAULT_MVP_PROFILE_PATH,
+    DEFAULT_TAXONOMY_PATH,
+    DatasetConfigError,
+    load_profile,
+    load_taxonomy,
+)
+from review_store import ReviewDecision, ReviewStoreError, load_decisions
+
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 SPLITS: Final[tuple[str, ...]] = ("train", "val", "test")
 
@@ -36,6 +45,8 @@ class ImageRecord:
     source_page: str
     sha256: str
     perceptual_hash: str
+    record_id: str
+    review_status: str
 
     @property
     def group_key(self) -> str:
@@ -63,6 +74,18 @@ def parse_arguments() -> argparse.Namespace:
         "--output",
         type=Path,
         default=Path("datasets/classification"),
+    )
+    parser.add_argument("--taxonomy", type=Path, default=DEFAULT_TAXONOMY_PATH)
+    parser.add_argument("--profile", type=Path, default=DEFAULT_MVP_PROFILE_PATH)
+    parser.add_argument(
+        "--decisions",
+        type=Path,
+        default=Path("datasets/review/decisions.json"),
+    )
+    parser.add_argument(
+        "--allow-unreviewed",
+        action="store_true",
+        help="Include unreviewed crops. Reviewed images are required by default.",
     )
     parser.add_argument("--minimum-width", type=int, default=320)
     parser.add_argument("--minimum-height", type=int, default=240)
@@ -138,7 +161,12 @@ def load_manifest(path: Path) -> list[dict[str, Any]]:
 
 
 def validate_record(
-    raw_record: dict[str, Any], minimum_width: int, minimum_height: int
+    raw_record: dict[str, Any],
+    minimum_width: int,
+    minimum_height: int,
+    allowed_classes: set[str],
+    decisions: dict[str, ReviewDecision],
+    require_reviewed: bool,
 ) -> ImageRecord | None:
     """Decode one source image and normalize its metadata.
 
@@ -150,8 +178,25 @@ def validate_record(
     Returns:
         Validated record or ``None`` when the image is unsuitable.
     """
-    source_path: Path = Path(str(raw_record.get("local_path", "")))
-    class_slug: str = str(raw_record.get("class_slug", "")).strip()
+    if str(raw_record.get("status", "success")) != "success":
+        return None
+    source_path: Path = Path(
+        str(raw_record.get("crop_path") or raw_record.get("local_path", ""))
+    )
+    record_id: str = str(raw_record.get("record_id", "")).strip()
+    decision: ReviewDecision | None = decisions.get(record_id)
+    if decision is not None and decision.status == "rejected":
+        return None
+    if require_reviewed and decision is None:
+        return None
+    class_slug: str = (
+        decision.class_slug
+        if decision is not None
+        else str(raw_record.get("class_slug", "")).strip()
+    )
+    if class_slug not in allowed_classes:
+        LOGGER.warning("Skipping class outside profile: %s", class_slug)
+        return None
     if not class_slug or not source_path.is_file():
         LOGGER.warning("Skipping missing or unclassified image: %s", source_path)
         return None
@@ -179,6 +224,8 @@ def validate_record(
         source_page=str(raw_record.get("source_page", "")),
         sha256=sha256,
         perceptual_hash=perceptual_hash,
+        record_id=record_id,
+        review_status=decision.status if decision is not None else "unreviewed",
     )
 
 
@@ -249,6 +296,7 @@ def place_file(source: Path, destination: Path, copy_files: bool) -> None:
 def write_prepared_dataset(
     records: list[ImageRecord],
     output_directory: Path,
+    expected_classes: set[str],
     train_ratio: float,
     val_ratio: float,
     copy_files: bool,
@@ -258,11 +306,15 @@ def write_prepared_dataset(
     Args:
         records: Deduplicated records.
         output_directory: Final dataset root.
+        expected_classes: Profile classes that must exist in every split.
         train_ratio: Fraction assigned to training.
         val_ratio: Fraction assigned to validation.
         copy_files: Whether images should be copied instead of hard-linked.
     """
     output_directory.mkdir(parents=True, exist_ok=False)
+    for split in SPLITS:
+        for class_slug in sorted(expected_classes):
+            (output_directory / split / class_slug).mkdir(parents=True)
     rows: list[dict[str, str]] = []
     split_counts: dict[str, dict[str, int]] = defaultdict(
         lambda: defaultdict(int)
@@ -287,6 +339,8 @@ def write_prepared_dataset(
                 "license_url": record.license_url,
                 "sha256": record.sha256,
                 "perceptual_hash": record.perceptual_hash,
+                "record_id": record.record_id,
+                "review_status": record.review_status,
             }
         )
 
@@ -333,11 +387,20 @@ def main() -> None:
             )
         shutil.rmtree(output_directory)
 
+    taxonomy = load_taxonomy(arguments.taxonomy)
+    profile = load_profile(arguments.profile, taxonomy)
+    allowed_classes: set[str] = set(profile.class_slugs)
+    decisions: dict[str, ReviewDecision] = load_decisions(arguments.decisions)
     raw_records: list[dict[str, Any]] = load_manifest(arguments.manifest)
     validated_records: list[ImageRecord] = []
     for raw_record in raw_records:
         record: ImageRecord | None = validate_record(
-            raw_record, arguments.minimum_width, arguments.minimum_height
+            raw_record,
+            arguments.minimum_width,
+            arguments.minimum_height,
+            allowed_classes,
+            decisions,
+            not arguments.allow_unreviewed,
         )
         if record is not None:
             validated_records.append(record)
@@ -345,6 +408,7 @@ def main() -> None:
     write_prepared_dataset(
         records,
         output_directory,
+        allowed_classes,
         train_ratio,
         val_ratio,
         arguments.copy,
@@ -358,6 +422,6 @@ if __name__ == "__main__":
     )
     try:
         main()
-    except DatasetPreparationError:
+    except (DatasetPreparationError, DatasetConfigError, ReviewStoreError):
         LOGGER.exception("Dataset preparation failed")
         raise SystemExit(1)

@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Final
+from typing import Final
 
 from PIL import Image, UnidentifiedImageError
+
+from dataset_config import (
+    DEFAULT_MVP_PROFILE_PATH,
+    DEFAULT_TAXONOMY_PATH,
+    DatasetConfigError,
+    load_profile,
+    load_taxonomy,
+)
 
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 SPLITS: Final[tuple[str, ...]] = ("train", "val", "test")
@@ -33,37 +40,11 @@ def parse_arguments() -> argparse.Namespace:
         "--data", type=Path, default=Path("datasets/classification")
     )
     parser.add_argument(
-        "--taxonomy", type=Path, default=Path("config/taxonomy.json")
+        "--taxonomy", type=Path, default=DEFAULT_TAXONOMY_PATH
     )
+    parser.add_argument("--profile", type=Path, default=DEFAULT_MVP_PROFILE_PATH)
     parser.add_argument("--minimum-per-split", type=int, default=5)
     return parser.parse_args()
-
-
-def taxonomy_slugs(path: Path) -> set[str]:
-    """Load expected class slugs from the taxonomy.
-
-    Args:
-        path: Taxonomy JSON path.
-
-    Returns:
-        Set of configured class slugs.
-    """
-    try:
-        payload: object = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise DatasetValidationError(f"Unable to read '{path}'.") from error
-    if not isinstance(payload, dict):
-        raise DatasetValidationError("Taxonomy root must be an object.")
-    classes: object = payload.get("classes")
-    if not isinstance(classes, list):
-        raise DatasetValidationError("Taxonomy must contain a classes list.")
-    slugs: set[str] = set()
-    for class_definition in classes:
-        if isinstance(class_definition, dict):
-            slug: str = str(class_definition.get("slug", "")).strip()
-            if slug:
-                slugs.add(slug)
-    return slugs
 
 
 def validate_image(path: Path) -> None:
@@ -143,7 +124,9 @@ def validate_dataset(
 def main() -> None:
     """Run validation and log a concise class distribution summary."""
     arguments: argparse.Namespace = parse_arguments()
-    expected_classes: set[str] = taxonomy_slugs(arguments.taxonomy)
+    taxonomy = load_taxonomy(arguments.taxonomy)
+    profile = load_profile(arguments.profile, taxonomy)
+    expected_classes: set[str] = set(profile.class_slugs)
     counts: dict[str, dict[str, int]] = validate_dataset(
         arguments.data, expected_classes, arguments.minimum_per_split
     )
@@ -159,6 +142,6 @@ if __name__ == "__main__":
     )
     try:
         main()
-    except DatasetValidationError:
+    except (DatasetValidationError, DatasetConfigError):
         LOGGER.exception("Dataset validation failed")
         raise SystemExit(1)

@@ -15,6 +15,16 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Final, Iterator
 
+from dataset_config import (
+    DEFAULT_TAXONOMY_PATH,
+    DatasetConfigError,
+    DatasetProfile,
+    TaxonomyClass,
+    load_profile,
+    load_taxonomy,
+    select_taxonomy_classes,
+)
+
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 API_URL: Final[str] = "https://commons.wikimedia.org/w/api.php"
 USER_AGENT: Final[str] = (
@@ -47,7 +57,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--taxonomy",
         type=Path,
-        default=Path("config/taxonomy.json"),
+        default=DEFAULT_TAXONOMY_PATH,
         help="Path to the taxonomy JSON file.",
     )
     parser.add_argument(
@@ -74,34 +84,19 @@ def parse_arguments() -> argparse.Namespace:
         default=0.15,
         help="Delay in seconds between downloaded files.",
     )
-    parser.add_argument(
+    selection_group = parser.add_mutually_exclusive_group()
+    selection_group.add_argument(
+        "--profile",
+        type=Path,
+        help="Optional dataset profile limiting the selected classes.",
+    )
+    selection_group.add_argument(
         "--class-slug",
         action="append",
         default=[],
         help="Download only selected class slugs; repeat for multiple classes.",
     )
     return parser.parse_args()
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    """Load a JSON object from disk.
-
-    Args:
-        path: JSON document path.
-
-    Returns:
-        Decoded JSON object.
-
-    Raises:
-        WikimediaError: If the document cannot be read or is not an object.
-    """
-    try:
-        value: object = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise WikimediaError(f"Unable to read taxonomy '{path}'.") from error
-    if not isinstance(value, dict):
-        raise WikimediaError("The taxonomy root must be a JSON object.")
-    return value
 
 
 def api_request(parameters: dict[str, str | int]) -> dict[str, Any]:
@@ -296,7 +291,7 @@ def extension_for_mime(mime_type: str) -> str:
 
 def process_page(
     page: dict[str, Any],
-    class_definition: dict[str, Any],
+    class_definition: TaxonomyClass,
     category: str,
     output_directory: Path,
 ) -> dict[str, Any] | None:
@@ -334,7 +329,7 @@ def process_page(
     page_id: str = str(page.get("pageid", "unknown"))
     title: str = str(page.get("title", "untitled"))
     filename_key: str = hashlib.sha256(f"{page_id}:{title}".encode()).hexdigest()[:20]
-    class_slug: str = str(class_definition["slug"])
+    class_slug: str = class_definition.slug
     class_directory: Path = output_directory / "images" / class_slug
     class_directory.mkdir(parents=True, exist_ok=True)
     destination: Path = class_directory / (
@@ -348,13 +343,13 @@ def process_page(
 
     return {
         "class_slug": class_slug,
-        "display_name": class_definition["display_name"],
-        "make": class_definition["make"],
-        "model": class_definition["model"],
-        "generation": class_definition["generation"],
-        "body_style": class_definition["body_style"],
-        "year_start": class_definition["year_start"],
-        "year_end": class_definition["year_end"],
+        "display_name": class_definition.display_name,
+        "make": class_definition.make,
+        "model": class_definition.model,
+        "generation": class_definition.generation,
+        "body_style": class_definition.body_style,
+        "year_start": class_definition.year_start,
+        "year_end": class_definition.year_end,
         "local_path": str(destination),
         "sha256": file_digest,
         "source": "wikimedia_commons",
@@ -373,11 +368,15 @@ def main() -> None:
     arguments: argparse.Namespace = parse_arguments()
     if arguments.limit_per_category <= 0:
         raise WikimediaError("--limit-per-category must be greater than zero.")
-    taxonomy: dict[str, Any] = load_json(arguments.taxonomy)
-    classes: object = taxonomy.get("classes")
-    if not isinstance(classes, list):
-        raise WikimediaError("Taxonomy must contain a 'classes' list.")
-    selected_slugs: set[str] = set(arguments.class_slug)
+    taxonomy: dict[str, TaxonomyClass] = load_taxonomy(arguments.taxonomy)
+    profile: DatasetProfile | None = (
+        load_profile(arguments.profile, taxonomy)
+        if arguments.profile is not None
+        else None
+    )
+    classes: list[TaxonomyClass] = select_taxonomy_classes(
+        taxonomy, profile, arguments.class_slug
+    )
     output_directory: Path = arguments.output
     output_directory.mkdir(parents=True, exist_ok=True)
     manifest_path: Path = output_directory / "manifest.jsonl"
@@ -392,16 +391,8 @@ def main() -> None:
 
     with manifest_path.open("a", encoding="utf-8") as manifest_file:
         for class_definition in classes:
-            if not isinstance(class_definition, dict):
-                continue
-            class_slug: str = str(class_definition.get("slug", ""))
-            if selected_slugs and class_slug not in selected_slugs:
-                continue
-            categories: object = class_definition.get("wikimedia_categories", [])
-            if not isinstance(categories, list):
-                continue
-            for category_value in categories:
-                category: str = str(category_value)
+            class_slug: str = class_definition.slug
+            for category in class_definition.wikimedia_categories:
                 LOGGER.info("Reading Category:%s for %s", category, class_slug)
                 for page in iter_category_files(
                     category,
@@ -433,6 +424,6 @@ if __name__ == "__main__":
     )
     try:
         main()
-    except WikimediaError:
+    except (DatasetConfigError, WikimediaError):
         LOGGER.exception("Wikimedia dataset download failed")
         raise SystemExit(1)

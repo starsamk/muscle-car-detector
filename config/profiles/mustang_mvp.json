@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "mustang_mvp",
+  "description": "Vertical slice for Mustang hardtop versus fastback recognition.",
+  "class_slugs": [
+    "ford_mustang_hardtop_1964_1966",
+    "ford_mustang_fastback_1965_1966",
+    "ford_mustang_hardtop_1967_1968",
+    "ford_mustang_fastback_1967_1968",
+    "other_car"
+  ]
+}
