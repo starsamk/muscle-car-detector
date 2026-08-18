@@ -28,7 +28,9 @@ from dataset_config import (
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 API_URL: Final[str] = "https://commons.wikimedia.org/w/api.php"
 USER_AGENT: Final[str] = (
-    "CarSpotterAI/0.1 (open-source dataset research; contact via repository)"
+    "CarSpotterAI/0.1 "
+    "(https://github.com/starsamk/muscle-car-detector; "
+    "open-source dataset research)"
 )
 ALLOWED_MIME_TYPES: Final[set[str]] = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_LICENSE_MARKERS: Final[tuple[str, ...]] = (
@@ -81,7 +83,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--delay",
         type=float,
-        default=0.15,
+        default=1.5,
         help="Delay in seconds between downloaded files.",
     )
     selection_group = parser.add_mutually_exclusive_group()
@@ -121,20 +123,21 @@ def api_request(parameters: dict[str, str | int]) -> dict[str, Any]:
         url, headers={"User-Agent": USER_AGENT}
     )
     payload: object | None = None
-    for attempt in range(4):
+    for attempt in range(5):
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 payload = json.loads(response.read().decode("utf-8"))
             break
         except urllib.error.HTTPError as error:
-            if error.code != 429 or attempt == 3:
+            if error.code != 429 or attempt == 4:
                 raise WikimediaError(
                     f"Wikimedia API request failed: {url}"
                 ) from error
             retry_after: str = error.headers.get("Retry-After", "")
-            wait_seconds: float = (
-                float(retry_after) if retry_after.isdigit() else float(2**attempt)
+            server_delay: float = (
+                float(retry_after) if retry_after.isdigit() else 0.0
             )
+            wait_seconds: float = max(server_delay, float(5 * 2**attempt))
             LOGGER.warning(
                 "Wikimedia rate limit reached; retrying in %.1f seconds",
                 wait_seconds,
@@ -242,7 +245,7 @@ def download_file(url: str, destination: Path) -> str:
     request: urllib.request.Request = urllib.request.Request(
         url, headers={"User-Agent": USER_AGENT}
     )
-    for attempt in range(5):
+    for attempt in range(6):
         digest: Any = hashlib.sha256()
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
@@ -254,14 +257,13 @@ def download_file(url: str, destination: Path) -> str:
             return digest.hexdigest()
         except urllib.error.HTTPError as error:
             temporary_path.unlink(missing_ok=True)
-            if error.code != 429 or attempt == 4:
+            if error.code != 429 or attempt == 5:
                 raise WikimediaError(f"Unable to download '{url}'.") from error
             retry_after: str = error.headers.get("Retry-After", "")
-            wait_seconds: float = (
-                float(retry_after)
-                if retry_after.isdigit()
-                else float(2 ** (attempt + 1))
+            server_delay: float = (
+                float(retry_after) if retry_after.isdigit() else 0.0
             )
+            wait_seconds: float = max(server_delay, float(10 * 2**attempt))
             LOGGER.warning(
                 "Image download rate limit reached; retrying in %.1f seconds",
                 wait_seconds,
