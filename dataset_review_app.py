@@ -101,13 +101,13 @@ def render_record(
     with original_column:
         st.caption("Photo source")
         if original_path is not None:
-            st.image(str(original_path), use_container_width=True)
+            st.image(str(original_path), use_column_width=True)
         else:
             st.warning("Image source absente")
     with crop_column:
         st.caption("Recadrage proposé")
         if crop_path is not None:
-            st.image(str(crop_path), use_container_width=True)
+            st.image(str(crop_path), use_column_width=True)
         else:
             st.warning("Recadrage absent")
 
