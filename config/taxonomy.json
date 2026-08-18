@@ -1,0 +1,343 @@
+{
+  "schema_version": 1,
+  "scope": {
+    "start_year": 1960,
+    "end_year": 1974,
+    "fallback_class": "other_car"
+  },
+  "classes": [
+    {
+      "slug": "ford_mustang_hardtop_1964_1966",
+      "display_name": "Ford Mustang Hardtop",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "hardtop",
+      "year_start": 1964,
+      "year_end": 1966,
+      "wikimedia_categories": [
+        "1964 Ford Mustang hardtop",
+        "1965 Ford Mustang hardtop",
+        "1966 Ford Mustang hardtop"
+      ]
+    },
+    {
+      "slug": "ford_mustang_fastback_1965_1966",
+      "display_name": "Ford Mustang Fastback",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "fastback",
+      "year_start": 1965,
+      "year_end": 1966,
+      "wikimedia_categories": [
+        "1965 Ford Mustang fastback",
+        "1966 Ford Mustang fastback"
+      ]
+    },
+    {
+      "slug": "ford_mustang_convertible_1964_1966",
+      "display_name": "Ford Mustang Convertible",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "convertible",
+      "year_start": 1964,
+      "year_end": 1966,
+      "wikimedia_categories": [
+        "1964 Ford Mustang convertible",
+        "1965 Ford Mustang convertible",
+        "1966 Ford Mustang convertible"
+      ]
+    },
+    {
+      "slug": "ford_mustang_hardtop_1967_1968",
+      "display_name": "Ford Mustang Hardtop",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "hardtop",
+      "year_start": 1967,
+      "year_end": 1968,
+      "wikimedia_categories": [
+        "1967 Ford Mustang hardtop",
+        "1968 Ford Mustang hardtop"
+      ]
+    },
+    {
+      "slug": "ford_mustang_fastback_1967_1968",
+      "display_name": "Ford Mustang Fastback",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "fastback",
+      "year_start": 1967,
+      "year_end": 1968,
+      "wikimedia_categories": [
+        "1967 Ford Mustang fastback",
+        "1968 Ford Mustang fastback"
+      ]
+    },
+    {
+      "slug": "ford_mustang_convertible_1967_1968",
+      "display_name": "Ford Mustang Convertible",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "convertible",
+      "year_start": 1967,
+      "year_end": 1968,
+      "wikimedia_categories": [
+        "1967 Ford Mustang convertible",
+        "1968 Ford Mustang convertible"
+      ]
+    },
+    {
+      "slug": "ford_mustang_hardtop_1969_1970",
+      "display_name": "Ford Mustang Hardtop",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "hardtop",
+      "year_start": 1969,
+      "year_end": 1970,
+      "wikimedia_categories": [
+        "1969 Ford Mustang hardtop",
+        "1970 Ford Mustang hardtop"
+      ]
+    },
+    {
+      "slug": "ford_mustang_sportsroof_1969_1970",
+      "display_name": "Ford Mustang SportsRoof",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "fastback",
+      "year_start": 1969,
+      "year_end": 1970,
+      "wikimedia_categories": [
+        "1969 Ford Mustang SportsRoof",
+        "1970 Ford Mustang SportsRoof"
+      ]
+    },
+    {
+      "slug": "dodge_charger_1966_1967",
+      "display_name": "Dodge Charger",
+      "make": "Dodge",
+      "model": "Charger",
+      "generation": "I",
+      "body_style": "fastback",
+      "year_start": 1966,
+      "year_end": 1967,
+      "wikimedia_categories": [
+        "1966 Dodge Charger",
+        "1967 Dodge Charger"
+      ]
+    },
+    {
+      "slug": "dodge_charger_1968_1970",
+      "display_name": "Dodge Charger",
+      "make": "Dodge",
+      "model": "Charger",
+      "generation": "II",
+      "body_style": "hardtop",
+      "year_start": 1968,
+      "year_end": 1970,
+      "wikimedia_categories": [
+        "1968 Dodge Charger",
+        "1969 Dodge Charger",
+        "1970 Dodge Charger"
+      ]
+    },
+    {
+      "slug": "dodge_charger_1971_1974",
+      "display_name": "Dodge Charger",
+      "make": "Dodge",
+      "model": "Charger",
+      "generation": "III",
+      "body_style": "hardtop",
+      "year_start": 1971,
+      "year_end": 1974,
+      "wikimedia_categories": [
+        "1971 Dodge Charger",
+        "1972 Dodge Charger",
+        "1973 Dodge Charger",
+        "1974 Dodge Charger"
+      ]
+    },
+    {
+      "slug": "dodge_challenger_1970_1974",
+      "display_name": "Dodge Challenger",
+      "make": "Dodge",
+      "model": "Challenger",
+      "generation": "I",
+      "body_style": "coupe",
+      "year_start": 1970,
+      "year_end": 1974,
+      "wikimedia_categories": [
+        "1970 Dodge Challenger",
+        "1971 Dodge Challenger",
+        "1972 Dodge Challenger",
+        "1973 Dodge Challenger",
+        "1974 Dodge Challenger"
+      ]
+    },
+    {
+      "slug": "chevrolet_camaro_1967_1969",
+      "display_name": "Chevrolet Camaro",
+      "make": "Chevrolet",
+      "model": "Camaro",
+      "generation": "I",
+      "body_style": "coupe",
+      "year_start": 1967,
+      "year_end": 1969,
+      "wikimedia_categories": [
+        "1967 Chevrolet Camaro",
+        "1968 Chevrolet Camaro",
+        "1969 Chevrolet Camaro"
+      ]
+    },
+    {
+      "slug": "chevrolet_camaro_1970_1974",
+      "display_name": "Chevrolet Camaro",
+      "make": "Chevrolet",
+      "model": "Camaro",
+      "generation": "II",
+      "body_style": "coupe",
+      "year_start": 1970,
+      "year_end": 1974,
+      "wikimedia_categories": [
+        "1970 Chevrolet Camaro",
+        "1971 Chevrolet Camaro",
+        "1972 Chevrolet Camaro",
+        "1973 Chevrolet Camaro",
+        "1974 Chevrolet Camaro"
+      ]
+    },
+    {
+      "slug": "chevrolet_corvette_c1_1960_1962",
+      "display_name": "Chevrolet Corvette C1",
+      "make": "Chevrolet",
+      "model": "Corvette",
+      "generation": "C1",
+      "body_style": "sports_car",
+      "year_start": 1960,
+      "year_end": 1962,
+      "wikimedia_categories": [
+        "1960 Chevrolet Corvette",
+        "1961 Chevrolet Corvette",
+        "1962 Chevrolet Corvette"
+      ]
+    },
+    {
+      "slug": "chevrolet_corvette_c2_1963_1967",
+      "display_name": "Chevrolet Corvette C2",
+      "make": "Chevrolet",
+      "model": "Corvette",
+      "generation": "C2",
+      "body_style": "sports_car",
+      "year_start": 1963,
+      "year_end": 1967,
+      "wikimedia_categories": [
+        "1963 Chevrolet Corvette",
+        "1964 Chevrolet Corvette",
+        "1965 Chevrolet Corvette",
+        "1966 Chevrolet Corvette",
+        "1967 Chevrolet Corvette"
+      ]
+    },
+    {
+      "slug": "chevrolet_corvette_c3_1968_1974",
+      "display_name": "Chevrolet Corvette C3",
+      "make": "Chevrolet",
+      "model": "Corvette",
+      "generation": "C3",
+      "body_style": "sports_car",
+      "year_start": 1968,
+      "year_end": 1974,
+      "wikimedia_categories": [
+        "1968 Chevrolet Corvette",
+        "1969 Chevrolet Corvette",
+        "1970 Chevrolet Corvette",
+        "1971 Chevrolet Corvette",
+        "1972 Chevrolet Corvette",
+        "1973 Chevrolet Corvette",
+        "1974 Chevrolet Corvette"
+      ]
+    },
+    {
+      "slug": "chevrolet_impala_1960_1964",
+      "display_name": "Chevrolet Impala",
+      "make": "Chevrolet",
+      "model": "Impala",
+      "generation": "II-III",
+      "body_style": "full_size",
+      "year_start": 1960,
+      "year_end": 1964,
+      "wikimedia_categories": [
+        "1960 Chevrolet Impala",
+        "1961 Chevrolet Impala",
+        "1962 Chevrolet Impala",
+        "1963 Chevrolet Impala",
+        "1964 Chevrolet Impala"
+      ]
+    },
+    {
+      "slug": "chevrolet_impala_1965_1970",
+      "display_name": "Chevrolet Impala",
+      "make": "Chevrolet",
+      "model": "Impala",
+      "generation": "IV",
+      "body_style": "full_size",
+      "year_start": 1965,
+      "year_end": 1970,
+      "wikimedia_categories": [
+        "1965 Chevrolet Impala",
+        "1966 Chevrolet Impala",
+        "1967 Chevrolet Impala",
+        "1968 Chevrolet Impala",
+        "1969 Chevrolet Impala",
+        "1970 Chevrolet Impala"
+      ]
+    },
+    {
+      "slug": "chevrolet_impala_1971_1974",
+      "display_name": "Chevrolet Impala",
+      "make": "Chevrolet",
+      "model": "Impala",
+      "generation": "V",
+      "body_style": "full_size",
+      "year_start": 1971,
+      "year_end": 1974,
+      "wikimedia_categories": [
+        "1971 Chevrolet Impala",
+        "1972 Chevrolet Impala",
+        "1973 Chevrolet Impala",
+        "1974 Chevrolet Impala"
+      ]
+    },
+    {
+      "slug": "other_car",
+      "display_name": "Other car",
+      "make": "Other",
+      "model": "Other",
+      "generation": "",
+      "body_style": "",
+      "year_start": 0,
+      "year_end": 0,
+      "wikimedia_categories": [
+        "1967 Pontiac GTO",
+        "1968 Pontiac Firebird",
+        "1969 Chevrolet Chevelle",
+        "1968 Plymouth Barracuda",
+        "1969 Plymouth Road Runner",
+        "1965 Ford Thunderbird",
+        "1970 Chevrolet Monte Carlo",
+        "2015 Ford Mustang",
+        "2015 Dodge Challenger",
+        "2015 Chevrolet Camaro",
+        "2015 Chevrolet Corvette"
+      ]
+    }
+  ]
+}

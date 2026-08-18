@@ -1,0 +1,438 @@
+"""Download licensed training images from Wikimedia Commons categories."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import html
+import json
+import logging
+import re
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any, Final, Iterator
+
+LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
+API_URL: Final[str] = "https://commons.wikimedia.org/w/api.php"
+USER_AGENT: Final[str] = (
+    "CarSpotterAI/0.1 (open-source dataset research; contact via repository)"
+)
+ALLOWED_MIME_TYPES: Final[set[str]] = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_LICENSE_MARKERS: Final[tuple[str, ...]] = (
+    "cc by",
+    "cc-by",
+    "cc0",
+    "public domain",
+    "pd-",
+)
+HTML_TAG_PATTERN: Final[re.Pattern[str]] = re.compile(r"<[^>]+>")
+
+
+class WikimediaError(RuntimeError):
+    """Raised when the Wikimedia API or a download cannot be processed."""
+
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Returns:
+        Parsed command-line namespace.
+    """
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        description="Download Wikimedia images declared in the taxonomy."
+    )
+    parser.add_argument(
+        "--taxonomy",
+        type=Path,
+        default=Path("config/taxonomy.json"),
+        help="Path to the taxonomy JSON file.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("datasets/raw"),
+        help="Directory receiving images and the JSONL manifest.",
+    )
+    parser.add_argument(
+        "--limit-per-category",
+        type=int,
+        default=80,
+        help="Maximum number of images downloaded from each category.",
+    )
+    parser.add_argument(
+        "--thumbnail-width",
+        type=int,
+        default=1600,
+        help="Requested Wikimedia thumbnail width.",
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.15,
+        help="Delay in seconds between downloaded files.",
+    )
+    parser.add_argument(
+        "--class-slug",
+        action="append",
+        default=[],
+        help="Download only selected class slugs; repeat for multiple classes.",
+    )
+    return parser.parse_args()
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    """Load a JSON object from disk.
+
+    Args:
+        path: JSON document path.
+
+    Returns:
+        Decoded JSON object.
+
+    Raises:
+        WikimediaError: If the document cannot be read or is not an object.
+    """
+    try:
+        value: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise WikimediaError(f"Unable to read taxonomy '{path}'.") from error
+    if not isinstance(value, dict):
+        raise WikimediaError("The taxonomy root must be a JSON object.")
+    return value
+
+
+def api_request(parameters: dict[str, str | int]) -> dict[str, Any]:
+    """Send a read-only request to the Wikimedia Commons API.
+
+    Args:
+        parameters: MediaWiki API query parameters.
+
+    Returns:
+        Parsed API response.
+
+    Raises:
+        WikimediaError: If the request or response decoding fails.
+    """
+    query: dict[str, str | int] = {
+        "format": "json",
+        "formatversion": 2,
+        **parameters,
+    }
+    url: str = f"{API_URL}?{urllib.parse.urlencode(query)}"
+    request: urllib.request.Request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT}
+    )
+    payload: object | None = None
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as error:
+            if error.code != 429 or attempt == 3:
+                raise WikimediaError(
+                    f"Wikimedia API request failed: {url}"
+                ) from error
+            retry_after: str = error.headers.get("Retry-After", "")
+            wait_seconds: float = (
+                float(retry_after) if retry_after.isdigit() else float(2**attempt)
+            )
+            LOGGER.warning(
+                "Wikimedia rate limit reached; retrying in %.1f seconds",
+                wait_seconds,
+            )
+            time.sleep(wait_seconds)
+        except (OSError, json.JSONDecodeError) as error:
+            raise WikimediaError(f"Wikimedia API request failed: {url}") from error
+    if payload is None:
+        raise WikimediaError(f"Wikimedia API returned no payload: {url}")
+    if not isinstance(payload, dict):
+        raise WikimediaError("Wikimedia returned an invalid JSON response.")
+    if "error" in payload:
+        raise WikimediaError(f"Wikimedia API error: {payload['error']}")
+    return payload
+
+
+def iter_category_files(
+    category: str, limit: int, thumbnail_width: int
+) -> Iterator[dict[str, Any]]:
+    """Yield file metadata from a Commons category.
+
+    Args:
+        category: Commons category name without the ``Category:`` prefix.
+        limit: Maximum number of files yielded.
+        thumbnail_width: Requested thumbnail width in pixels.
+
+    Yields:
+        API page dictionaries containing image information.
+    """
+    continuation: str | None = None
+    yielded_count: int = 0
+    while yielded_count < limit:
+        parameters: dict[str, str | int] = {
+            "action": "query",
+            "generator": "categorymembers",
+            "gcmtitle": f"Category:{category}",
+            "gcmtype": "file",
+            "gcmlimit": min(50, limit - yielded_count),
+            "prop": "imageinfo",
+            "iiprop": "url|mime|size|extmetadata",
+            "iiurlwidth": thumbnail_width,
+        }
+        if continuation is not None:
+            parameters["gcmcontinue"] = continuation
+        payload: dict[str, Any] = api_request(parameters)
+        query: object = payload.get("query", {})
+        pages: object = query.get("pages", []) if isinstance(query, dict) else []
+        if not isinstance(pages, list):
+            raise WikimediaError(f"Unexpected response for category '{category}'.")
+        for page in pages:
+            if isinstance(page, dict):
+                yielded_count += 1
+                yield page
+        continuation_data: object = payload.get("continue")
+        if not isinstance(continuation_data, dict):
+            break
+        continuation_value: object = continuation_data.get("gcmcontinue")
+        if not isinstance(continuation_value, str):
+            break
+        continuation = continuation_value
+
+
+def clean_metadata(value: object) -> str:
+    """Convert Wikimedia extended metadata to readable plain text.
+
+    Args:
+        value: Raw metadata value or metadata mapping.
+
+    Returns:
+        Sanitized text.
+    """
+    if isinstance(value, dict):
+        value = value.get("value", "")
+    text_value: str = str(value) if value is not None else ""
+    return html.unescape(HTML_TAG_PATTERN.sub("", text_value)).strip()
+
+
+def is_allowed_license(license_name: str) -> bool:
+    """Return whether a Commons license is accepted by this project.
+
+    Args:
+        license_name: Human-readable license name.
+
+    Returns:
+        ``True`` for permissive Creative Commons or public-domain licenses.
+    """
+    normalized_license: str = license_name.casefold()
+    return any(marker in normalized_license for marker in ALLOWED_LICENSE_MARKERS)
+
+
+def download_file(url: str, destination: Path) -> str:
+    """Download one image atomically and return its SHA-256 digest.
+
+    Args:
+        url: Source image URL.
+        destination: Final local image path.
+
+    Returns:
+        Hexadecimal SHA-256 digest.
+
+    Raises:
+        WikimediaError: If the image cannot be downloaded.
+    """
+    temporary_path: Path = destination.with_suffix(destination.suffix + ".part")
+    request: urllib.request.Request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT}
+    )
+    for attempt in range(5):
+        digest: Any = hashlib.sha256()
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                with temporary_path.open("wb") as output_file:
+                    while chunk := response.read(1024 * 1024):
+                        digest.update(chunk)
+                        output_file.write(chunk)
+            temporary_path.replace(destination)
+            return digest.hexdigest()
+        except urllib.error.HTTPError as error:
+            temporary_path.unlink(missing_ok=True)
+            if error.code != 429 or attempt == 4:
+                raise WikimediaError(f"Unable to download '{url}'.") from error
+            retry_after: str = error.headers.get("Retry-After", "")
+            wait_seconds: float = (
+                float(retry_after)
+                if retry_after.isdigit()
+                else float(2 ** (attempt + 1))
+            )
+            LOGGER.warning(
+                "Image download rate limit reached; retrying in %.1f seconds",
+                wait_seconds,
+            )
+            time.sleep(wait_seconds)
+        except OSError as error:
+            temporary_path.unlink(missing_ok=True)
+            raise WikimediaError(f"Unable to download '{url}'.") from error
+    raise WikimediaError(f"Unable to download '{url}'.")
+
+
+def extension_for_mime(mime_type: str) -> str:
+    """Map a supported image MIME type to a file extension.
+
+    Args:
+        mime_type: Wikimedia MIME type.
+
+    Returns:
+        Lower-case filename extension including the leading dot.
+    """
+    return {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }[mime_type]
+
+
+def process_page(
+    page: dict[str, Any],
+    class_definition: dict[str, Any],
+    category: str,
+    output_directory: Path,
+) -> dict[str, Any] | None:
+    """Validate and download one API page.
+
+    Args:
+        page: Wikimedia API page object.
+        class_definition: Taxonomy class assigned to the category.
+        category: Source Wikimedia category.
+        output_directory: Dataset root directory.
+
+    Returns:
+        Manifest record, or ``None`` when the file should be skipped.
+    """
+    image_info_list: object = page.get("imageinfo")
+    if not isinstance(image_info_list, list) or not image_info_list:
+        return None
+    image_info: object = image_info_list[0]
+    if not isinstance(image_info, dict):
+        return None
+    mime_type: str = str(image_info.get("mime", ""))
+    if mime_type not in ALLOWED_MIME_TYPES:
+        return None
+    metadata: object = image_info.get("extmetadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+    license_name: str = clean_metadata(metadata.get("LicenseShortName"))
+    if not is_allowed_license(license_name):
+        LOGGER.warning("Skipping unsupported license '%s'", license_name)
+        return None
+
+    source_url: str = str(image_info.get("thumburl") or image_info.get("url") or "")
+    if not source_url:
+        return None
+    page_id: str = str(page.get("pageid", "unknown"))
+    title: str = str(page.get("title", "untitled"))
+    filename_key: str = hashlib.sha256(f"{page_id}:{title}".encode()).hexdigest()[:20]
+    class_slug: str = str(class_definition["slug"])
+    class_directory: Path = output_directory / "images" / class_slug
+    class_directory.mkdir(parents=True, exist_ok=True)
+    destination: Path = class_directory / (
+        filename_key + extension_for_mime(mime_type)
+    )
+    if destination.exists():
+        LOGGER.info("Already downloaded: %s", destination)
+        file_digest: str = hashlib.sha256(destination.read_bytes()).hexdigest()
+    else:
+        file_digest = download_file(source_url, destination)
+
+    return {
+        "class_slug": class_slug,
+        "display_name": class_definition["display_name"],
+        "make": class_definition["make"],
+        "model": class_definition["model"],
+        "generation": class_definition["generation"],
+        "body_style": class_definition["body_style"],
+        "year_start": class_definition["year_start"],
+        "year_end": class_definition["year_end"],
+        "local_path": str(destination),
+        "sha256": file_digest,
+        "source": "wikimedia_commons",
+        "source_category": category,
+        "source_title": title,
+        "source_page": str(image_info.get("descriptionurl", "")),
+        "author": clean_metadata(metadata.get("Artist")),
+        "credit": clean_metadata(metadata.get("Credit")),
+        "license": license_name,
+        "license_url": clean_metadata(metadata.get("LicenseUrl")),
+    }
+
+
+def main() -> None:
+    """Download configured Wikimedia categories and write a JSONL manifest."""
+    arguments: argparse.Namespace = parse_arguments()
+    if arguments.limit_per_category <= 0:
+        raise WikimediaError("--limit-per-category must be greater than zero.")
+    taxonomy: dict[str, Any] = load_json(arguments.taxonomy)
+    classes: object = taxonomy.get("classes")
+    if not isinstance(classes, list):
+        raise WikimediaError("Taxonomy must contain a 'classes' list.")
+    selected_slugs: set[str] = set(arguments.class_slug)
+    output_directory: Path = arguments.output
+    output_directory.mkdir(parents=True, exist_ok=True)
+    manifest_path: Path = output_directory / "manifest.jsonl"
+    existing_records: set[tuple[str, str]] = set()
+    if manifest_path.exists():
+        for line in manifest_path.read_text(encoding="utf-8").splitlines():
+            record: object = json.loads(line)
+            if isinstance(record, dict):
+                existing_records.add(
+                    (str(record.get("class_slug")), str(record.get("source_title")))
+                )
+
+    with manifest_path.open("a", encoding="utf-8") as manifest_file:
+        for class_definition in classes:
+            if not isinstance(class_definition, dict):
+                continue
+            class_slug: str = str(class_definition.get("slug", ""))
+            if selected_slugs and class_slug not in selected_slugs:
+                continue
+            categories: object = class_definition.get("wikimedia_categories", [])
+            if not isinstance(categories, list):
+                continue
+            for category_value in categories:
+                category: str = str(category_value)
+                LOGGER.info("Reading Category:%s for %s", category, class_slug)
+                for page in iter_category_files(
+                    category,
+                    arguments.limit_per_category,
+                    arguments.thumbnail_width,
+                ):
+                    source_title: str = str(page.get("title", ""))
+                    if (class_slug, source_title) in existing_records:
+                        continue
+                    try:
+                        record = process_page(
+                            page, class_definition, category, output_directory
+                        )
+                    except WikimediaError:
+                        LOGGER.exception("Failed to process %s", source_title)
+                        continue
+                    if record is None:
+                        continue
+                    manifest_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    manifest_file.flush()
+                    existing_records.add((class_slug, source_title))
+                    time.sleep(max(0.0, arguments.delay))
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+    try:
+        main()
+    except WikimediaError:
+        LOGGER.exception("Wikimedia dataset download failed")
+        raise SystemExit(1)
