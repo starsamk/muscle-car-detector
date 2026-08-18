@@ -31,6 +31,18 @@ class TaxonomyClass:
     year_end: int
     wikimedia_categories: tuple[str, ...]
 
+    @property
+    def label(self) -> str:
+        """Return an unambiguous user-facing model and production period."""
+        if self.year_start <= 0 or self.year_end <= 0:
+            return self.display_name
+        period: str = (
+            str(self.year_start)
+            if self.year_start == self.year_end
+            else f"{self.year_start}–{self.year_end}"
+        )
+        return f"{self.display_name} — {period}"
+
 
 @dataclass(frozen=True)
 class DatasetProfile:

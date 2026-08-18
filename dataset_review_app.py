@@ -115,7 +115,7 @@ def render_record(
     proposed = taxonomy.get(proposed_slug)
     st.write(
         "Classe proposée : "
-        + (proposed.display_name if proposed is not None else proposed_slug)
+        + (proposed.label if proposed is not None else proposed_slug)
     )
     confidence: object = record.get("detection_confidence")
     if isinstance(confidence, (int, float)):
@@ -189,7 +189,7 @@ def main() -> None:
     render_record(record, taxonomy)
 
     display_names: dict[str, str] = {
-        slug: taxonomy[slug].display_name for slug in profile.class_slugs
+        slug: taxonomy[slug].label for slug in profile.class_slugs
     }
     proposed_slug: str = str(record.get("class_slug", profile.class_slugs[0]))
     default_index: int = (

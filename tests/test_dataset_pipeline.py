@@ -23,6 +23,11 @@ class DatasetConfigurationTests(unittest.TestCase):
 
         self.assertEqual(len(profile.class_slugs), 5)
         self.assertIn("ford_mustang_fastback_1967_1968", profile.class_slugs)
+        self.assertEqual(
+            taxonomy["ford_mustang_fastback_1967_1968"].label,
+            "Ford Mustang Fastback — 1967–1968",
+        )
+        self.assertEqual(taxonomy["other_car"].label, "Other car")
 
     def test_profile_rejects_an_unknown_class(self) -> None:
         """A typo in an experiment profile must fail immediately."""
