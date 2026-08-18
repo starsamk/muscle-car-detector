@@ -162,14 +162,15 @@ def main() -> None:
         "Filtrer par classe", ("Toutes", *profile.class_slugs)
     )
     show_reviewed: bool = st.sidebar.checkbox("Afficher les images déjà revues")
-    visible_records: list[dict[str, Any]] = [
+    filtered_records: list[dict[str, Any]] = [
         record
         for record in profile_records
         if (class_filter == "Toutes" or record.get("class_slug") == class_filter)
-        and (
-            show_reviewed
-            or str(record.get("record_id", "")) not in decisions
-        )
+    ]
+    pending_records: list[dict[str, Any]] = [
+        record
+        for record in filtered_records
+        if str(record.get("record_id", "")) not in decisions
     ]
     reviewed_count: int = sum(
         str(record.get("record_id", "")) in decisions for record in profile_records
@@ -178,14 +179,37 @@ def main() -> None:
     if profile_records:
         st.sidebar.progress(reviewed_count / len(profile_records))
 
-    if not visible_records:
+    if not filtered_records:
+        st.info("Aucune image ne correspond à ce filtre.")
+        return
+    current_record_id: str = str(
+        st.session_state.get("review_record_id", "")
+    )
+    records_by_id: dict[str, dict[str, Any]] = {
+        str(record.get("record_id", "")): record for record in filtered_records
+    }
+    current_record: dict[str, Any] | None = records_by_id.get(current_record_id)
+    if current_record is None or (
+        not show_reviewed
+        and current_record_id in decisions
+        and not st.session_state.get("review_explicit_navigation", False)
+    ):
+        current_record = pending_records[0] if pending_records else None
+    if current_record is None:
         st.success("Aucune image ne reste à valider avec ce filtre.")
         return
-    current_index: int = min(
-        int(st.session_state.get("review_index", 0)), len(visible_records) - 1
+    record: dict[str, Any] = current_record
+    current_record_id = str(record.get("record_id", ""))
+    st.session_state.review_record_id = current_record_id
+    current_index: int = next(
+        index
+        for index, candidate in enumerate(filtered_records)
+        if str(candidate.get("record_id", "")) == current_record_id
     )
-    record: dict[str, Any] = visible_records[current_index]
-    st.caption(f"Image {current_index + 1} sur {len(visible_records)}")
+    review_state: str = "déjà revue" if current_record_id in decisions else "à revoir"
+    st.caption(
+        f"Image {current_index + 1} sur {len(filtered_records)} · {review_state}"
+    )
     render_record(record, taxonomy)
 
     display_names: dict[str, str] = {
@@ -205,7 +229,11 @@ def main() -> None:
     )
     previous_column, accept_column, reject_column, next_column = st.columns(4)
     if previous_column.button("← Précédente", use_container_width=True):
-        st.session_state.review_index = max(0, current_index - 1)
+        previous_index: int = max(0, current_index - 1)
+        st.session_state.review_record_id = str(
+            filtered_records[previous_index].get("record_id", "")
+        )
+        st.session_state.review_explicit_navigation = True
         st.rerun()
     if accept_column.button(
         "Accepter", type="primary", use_container_width=True
@@ -213,18 +241,49 @@ def main() -> None:
         persist_decision(
             DEFAULT_DECISIONS, decisions, record, "accepted", selected_slug
         )
-        st.session_state.review_index = current_index
+        remaining_records: list[dict[str, Any]] = [
+            candidate
+            for candidate in filtered_records[current_index + 1 :]
+            if str(candidate.get("record_id", "")) not in decisions
+        ]
+        st.session_state.review_record_id = (
+            str(remaining_records[0].get("record_id", ""))
+            if remaining_records
+            else ""
+        )
+        st.session_state.review_explicit_navigation = False
         st.rerun()
     if reject_column.button("Rejeter", use_container_width=True):
         persist_decision(
             DEFAULT_DECISIONS, decisions, record, "rejected", selected_slug
         )
-        st.session_state.review_index = current_index
+        remaining_records = [
+            candidate
+            for candidate in filtered_records[current_index + 1 :]
+            if str(candidate.get("record_id", "")) not in decisions
+        ]
+        st.session_state.review_record_id = (
+            str(remaining_records[0].get("record_id", ""))
+            if remaining_records
+            else ""
+        )
+        st.session_state.review_explicit_navigation = False
         st.rerun()
     if next_column.button("Suivante →", use_container_width=True):
-        st.session_state.review_index = min(
-            len(visible_records) - 1, current_index + 1
+        following_records: list[dict[str, Any]] = (
+            filtered_records[current_index + 1 :]
+            if show_reviewed
+            else [
+                candidate
+                for candidate in filtered_records[current_index + 1 :]
+                if str(candidate.get("record_id", "")) not in decisions
+            ]
         )
+        if following_records:
+            st.session_state.review_record_id = str(
+                following_records[0].get("record_id", "")
+            )
+        st.session_state.review_explicit_navigation = show_reviewed
         st.rerun()
 
 
