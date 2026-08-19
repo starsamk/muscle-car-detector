@@ -128,11 +128,14 @@ python -m scripts.download_wikimedia \
   --taxonomy config/taxonomy_vehicle_v3.json \
   --profile config/profiles/vehicle_taxonomy_v3_missing_positive_collection.json \
   --output datasets/vehicle_taxonomy_v3/raw \
-  --limit-per-category 80
+  --limit-per-category 120 \
+  --target-per-class 150
 ```
 
 Les négatifs difficiles Wikimedia sont collectés séparément dans la même
 taxonomie avec `config/profiles/vehicle_taxonomy_v3_hard_negative_collection.json`.
+`--target-per-class` permet de reprendre une collecte sans dépasser un objectif
+de volume déjà présent dans le manifeste.
 Ils restent des candidats jusqu'à leur validation humaine.
 
 Pour ajouter des négatifs Open Images, téléchargez seulement les métadonnées de
