@@ -312,29 +312,37 @@ bien plus que le minimum technique de cinq images par classe et par split.
 `--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
 servir à produire le poids publié.
 
-## Entraînement sur Apple Silicon
+## Entraînement final V4 sur Apple Silicon
 
-Sur le Mac M1 Pro, entraînez d'abord `yolov8s-cls.pt` avec MPS :
+Le modèle V4 final est un **fine-tuning de V3**, et non un nouvel entraînement
+depuis `yolov8s-cls.pt`. Cela conserve les caractéristiques déjà apprises pour
+différencier Fastback et Hardtop tout en intégrant les négatifs `other_car`
+diversifiés. Utilisez le poids V3 actif et un faible taux d'apprentissage :
+`train_classifier.py` verrouille AdamW dans ce cas, car le mode
+`optimizer=auto` d'Ultralytics remplace sinon le taux demandé.
 
 ```bash
-python train_classifier.py \
-  --data datasets/classification_vehicle_v3 \
-  --model yolov8s-cls.pt \
+caffeinate -dimsu python train_classifier.py \
+  --data datasets/classification_vehicle_v4 \
+  --model weights/classifier-best.pt \
   --device mps \
-  --epochs 100 \
+  --epochs 50 \
   --image-size 320 \
   --batch-size 8 \
-  --name classic-car-classifier-v3
+  --workers 4 \
+  --learning-rate 0.001 \
+  --name classic-car-classifier-v4-final
 ```
 
-Le meilleur checkpoint est créé dans :
+`caffeinate` maintient le Mac éveillé pendant l'entraînement. Le meilleur
+checkpoint est créé dans :
 
 ```text
-runs/classify/classic-car-classifier-v3/weights/best.pt
+runs/classify/classic-car-classifier-v4-final/weights/best.pt
 ```
 
-Copiez-le ensuite vers `weights/classifier-best.pt`. Ce fichier n'est pas
-versionné dans Git.
+N'écrasez `weights/classifier-best.pt` qu'après les validations interne et
+terrain décrites ci-dessous. Ce fichier n'est pas versionné dans Git.
 
 ## Évaluation terrain indépendante
 

@@ -37,6 +37,7 @@ from scripts.evaluate_photo_spotter import (
     FieldPrediction,
     summarize_predictions,
 )
+from train_classifier import build_training_options, parse_arguments
 from taxonomy_migration import (
     TaxonomyMigrationError,
     load_class_mapping,
@@ -109,6 +110,30 @@ class DatasetConfigurationTests(unittest.TestCase):
             taxonomy["chevrolet_camaro_classic"].label,
             "Chevrolet Camaro (classic)",
         )
+
+
+class TrainingConfigurationTests(unittest.TestCase):
+    """Verify safe fine-tuning training settings."""
+
+    def test_explicit_learning_rate_is_passed_to_ultralytics(self) -> None:
+        """A fine-tuning learning rate must become the Ultralytics ``lr0`` option."""
+        arguments = parse_arguments(["--learning-rate", "0.001"])
+
+        options = build_training_options(
+            arguments,
+            Path("/tmp/classification"),
+            "mps",
+        )
+
+        self.assertEqual(options["lr0"], 0.001)
+        self.assertEqual(options["optimizer"], "AdamW")
+
+    def test_non_positive_learning_rate_is_rejected(self) -> None:
+        """A zero learning rate must stop before starting a training run."""
+        arguments = parse_arguments(["--learning-rate", "0"])
+
+        with self.assertRaises(ValueError):
+            build_training_options(arguments, Path("/tmp/classification"), "mps")
 
 
 class TaxonomyMigrationTests(unittest.TestCase):
