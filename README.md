@@ -349,7 +349,7 @@ bien plus que le minimum technique de cinq images par classe et par split.
 `--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
 servir à produire le poids publié.
 
-## Entraînement final V5 sur Apple Silicon
+## Fine-tuning candidat V5 sur Apple Silicon
 
 Le V5 part du checkpoint V4 générique, qui avait les meilleurs résultats sur
 `other_car`. Les neuf couches du backbone sont gelées : le classifieur apprend
@@ -385,7 +385,9 @@ terrain décrites ci-dessous. Avant toute promotion, vérifiez Fastback et
 Hardtop à au moins 80 % sur le test interne, `other_car` à au moins 90 %, un
 taux de faux positifs terrain `other_car` inférieur ou égal à 12,5 % et une
 précision terrain cible d'au moins 60 %. Sinon, conservez le poids V3 actif.
-Ce fichier n'est pas versionné dans Git.
+Le résultat de la première exécution V5 est consigné dans
+[`reports/model_v5_evaluation.md`](reports/model_v5_evaluation.md). Ce fichier
+de poids n'est pas versionné dans Git.
 
 ## Évaluation terrain indépendante
 
