@@ -38,6 +38,7 @@ from scripts.evaluate_photo_spotter import (
     summarize_predictions,
 )
 from train_classifier import build_training_options, parse_arguments
+from photo_model import PhotoSpotterConfig
 from taxonomy_migration import (
     TaxonomyMigrationError,
     load_class_mapping,
@@ -73,6 +74,12 @@ class DatasetConfigurationTests(unittest.TestCase):
             )
             with self.assertRaises(DatasetConfigError):
                 load_profile(path, taxonomy)
+
+    def test_final_photo_model_defaults_to_conservative_threshold(self) -> None:
+        """The final personal MVP uses the validated 0.50 threshold by default."""
+        config = PhotoSpotterConfig()
+
+        self.assertEqual(config.classification_confidence, 0.50)
 
     def test_body_style_v2_has_unambiguous_labels(self) -> None:
         """V2 labels must not expose an unsupported production-year prediction."""
@@ -147,6 +154,29 @@ class TrainingConfigurationTests(unittest.TestCase):
     def test_non_positive_learning_rate_is_rejected(self) -> None:
         """A zero learning rate must stop before starting a training run."""
         arguments = parse_arguments(["--learning-rate", "0"])
+
+        with self.assertRaises(ValueError):
+            build_training_options(arguments, Path("/tmp/classification"), "mps")
+
+    def test_freeze_and_patience_are_forwarded_to_ultralytics(self) -> None:
+        """The final V5 recipe must preserve its anti-forgetting controls."""
+        arguments = parse_arguments(
+            ["--freeze", "9", "--patience", "10", "--learning-rate", "0.0003"]
+        )
+
+        options = build_training_options(
+            arguments,
+            Path("/tmp/classification"),
+            "mps",
+        )
+
+        self.assertEqual(options["freeze"], 9)
+        self.assertEqual(options["patience"], 10)
+        self.assertEqual(options["lr0"], 0.0003)
+
+    def test_invalid_freeze_is_rejected(self) -> None:
+        """A negative layer count must stop before starting a training run."""
+        arguments = parse_arguments(["--freeze", "-1"])
 
         with self.assertRaises(ValueError):
             build_training_options(arguments, Path("/tmp/classification"), "mps")

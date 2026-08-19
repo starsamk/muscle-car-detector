@@ -31,6 +31,18 @@ def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespac
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--name", default="classic-car-classifier-v1")
     parser.add_argument(
+        "--freeze",
+        type=int,
+        default=0,
+        help="Number of leading YOLO layers to freeze during fine-tuning.",
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=20,
+        help="Stop after this many validation epochs without improvement.",
+    )
+    parser.add_argument(
         "--optimizer",
         default=None,
         help="Ultralytics optimizer. Defaults to AdamW when --learning-rate is set.",
@@ -85,11 +97,15 @@ def build_training_options(
         Keyword arguments accepted by ``YOLO.train``.
 
     Raises:
-        ValueError: If an explicitly supplied learning rate is not positive.
+        ValueError: If a numeric training control is outside its safe range.
     """
     learning_rate: float | None = arguments.learning_rate
     if learning_rate is not None and learning_rate <= 0:
         raise ValueError("--learning-rate must be strictly positive.")
+    if arguments.freeze < 0:
+        raise ValueError("--freeze must be greater than or equal to zero.")
+    if arguments.patience < 1:
+        raise ValueError("--patience must be greater than or equal to one.")
 
     options: dict[str, Any] = {
         "data": str(data_directory),
@@ -100,7 +116,7 @@ def build_training_options(
         "workers": arguments.workers,
         "project": "runs/classify",
         "name": arguments.name,
-        "patience": 20,
+        "patience": arguments.patience,
         "seed": 42,
         "deterministic": True,
         "plots": True,
@@ -110,6 +126,8 @@ def build_training_options(
         options["optimizer"] = arguments.optimizer or "AdamW"
     elif arguments.optimizer is not None:
         options["optimizer"] = arguments.optimizer
+    if arguments.freeze > 0:
+        options["freeze"] = arguments.freeze
     return options
 
 

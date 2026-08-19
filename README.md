@@ -349,40 +349,50 @@ bien plus que le minimum technique de cinq images par classe et par split.
 `--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
 servir à produire le poids publié.
 
-## Fine-tuning candidat V4 sur Apple Silicon
+## Fine-tuning V5 sur Apple Silicon
 
-Le modèle V4 est un **fine-tuning candidat de V3**, et non un nouvel entraînement
-depuis `yolov8s-cls.pt`. Cela conserve les caractéristiques déjà apprises pour
-différencier Fastback et Hardtop tout en intégrant les négatifs `other_car`
-diversifiés. Utilisez le poids V3 actif et un faible taux d'apprentissage :
-`train_classifier.py` verrouille AdamW dans ce cas, car le mode
-`optimizer=auto` d'Ultralytics remplace sinon le taux demandé.
+Le V5 part du checkpoint V4 générique, qui avait les meilleurs résultats sur
+`other_car`. Les neuf couches du backbone sont gelées : le classifieur apprend
+les nouveaux exemples Fastback et Hardtop sans oublier la séparation acquise
+avec les voitures hors cible. `train_classifier.py` verrouille AdamW lorsqu'un
+taux explicite est fourni, car `optimizer=auto` remplacerait sinon ce taux.
 
 ```bash
-caffeinate -dimsu python train_classifier.py \
-  --data datasets/classification_vehicle_v4 \
-  --model weights/classifier-best.pt \
+caffeinate -dimsu .venv/bin/python train_classifier.py \
+  --data datasets/classification_vehicle_v5 \
+  --model runs/classify/classic-car-classifier-v4/weights/best.pt \
   --device mps \
-  --epochs 50 \
+  --epochs 40 \
   --image-size 320 \
   --batch-size 8 \
   --workers 4 \
-  --learning-rate 0.001 \
-  --name classic-car-classifier-v4-final
+  --optimizer AdamW \
+  --learning-rate 0.0003 \
+  --freeze 9 \
+  --patience 10 \
+  --name classic-car-classifier-v5-final
 ```
 
 `caffeinate` maintient le Mac éveillé pendant l'entraînement. Le meilleur
 checkpoint est créé dans :
 
 ```text
-runs/classify/classic-car-classifier-v4-final/weights/best.pt
+runs/classify/classic-car-classifier-v5-final/weights/best.pt
 ```
 
-N'écrasez `weights/classifier-best.pt` qu'après les validations interne et
-terrain décrites ci-dessous. Avant toute promotion, vérifiez au minimum que le
-modèle conserve une bonne reconnaissance Fastback et que son taux de faux
-positifs `other_car` sur le lot terrain n'excède pas 12,5 % au seuil applicatif.
-Sinon, conservez le poids V3 actif. Ce fichier n'est pas versionné dans Git.
+Les résultats de l'exécution V5 sont consignés dans
+[`reports/model_v5_evaluation.md`](reports/model_v5_evaluation.md). Cette
+évaluation est adaptée à un MVP personnel, mais ne respecte pas tous les
+seuils stricts définis pour une mise en production. Le poids actif est donc
+figé comme une version expérimentale personnelle, avec un seuil applicatif de
+classification à 0,50. Le poids V3 précédent est conservé localement dans
+`weights/classifier-v3-best.pt` comme sauvegarde. Les poids ne sont pas
+versionnés dans Git.
+
+À partir de cette promotion, le backend et le dataset V5 sont gelés. Toute
+évolution future devra faire l'objet d'une nouvelle version et d'une nouvelle
+évaluation indépendante ; elle ne doit pas modifier silencieusement le poids
+actif ni les décisions du dataset publié.
 
 ## Évaluation terrain indépendante
 
