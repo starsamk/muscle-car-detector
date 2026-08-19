@@ -1,4 +1,4 @@
-"""Create v2 dataset metadata from reviewed legacy Mustang MVP records."""
+"""Create derived dataset metadata from reviewed taxonomy records."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class TaxonomyMigrationScriptError(RuntimeError):
 def parse_arguments() -> argparse.Namespace:
     """Parse taxonomy migration command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Migrate reviewed Mustang MVP metadata to body-style v2."
+        description="Migrate reviewed records to a compatible target taxonomy."
     )
     parser.add_argument(
         "--manifest", type=Path, default=Path("datasets/cropped/manifest.jsonl")
@@ -62,7 +62,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Replace only existing v2 metadata outputs, never source data.",
+        help="Replace derived metadata outputs, never source data.",
     )
     return parser.parse_args()
 

@@ -159,7 +159,10 @@ class PhotoSpotter:
             display_name: str = str(class_definition.get("display_name", slug))
             year_start: int = int(class_definition.get("year_start", 0))
             year_end: int = int(class_definition.get("year_end", 0))
-            if year_start > 0 and year_end > 0:
+            show_year_range: bool = bool(
+                class_definition.get("show_year_range", True)
+            )
+            if show_year_range and year_start > 0 and year_end > 0:
                 period: str = (
                     str(year_start)
                     if year_start == year_end

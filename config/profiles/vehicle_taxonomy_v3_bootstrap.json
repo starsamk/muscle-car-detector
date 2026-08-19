@@ -1,0 +1,10 @@
+{
+  "schema_version": 3,
+  "name": "vehicle_taxonomy_v3_bootstrap",
+  "description": "Existing reviewed seed only; not sufficient for a production model.",
+  "class_slugs": [
+    "ford_mustang_fastback_classic",
+    "ford_mustang_hardtop_classic",
+    "other_car"
+  ]
+}
