@@ -239,8 +239,18 @@ Préparez et validez les splits :
 
 ```bash
 python -m scripts.prepare_classification_dataset \
-  --manifest datasets/cropped/manifest.jsonl
-python -m scripts.validate_classification_dataset --minimum-per-split 5
+  --manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
+  --output datasets/classification_vehicle_v3 \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json \
+  --deleted datasets/vehicle_taxonomy_v3/review_queue/deleted.json \
+  --force
+python -m scripts.validate_classification_dataset \
+  --data datasets/classification_vehicle_v3 \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --minimum-per-split 5
 ```
 
 Le découpage est déterministe, groupé par auteur/source et stratifié par classe
@@ -256,17 +266,19 @@ Sur le Mac M1 Pro, entraînez d'abord `yolov8s-cls.pt` avec MPS :
 
 ```bash
 python train_classifier.py \
+  --data datasets/classification_vehicle_v3 \
   --model yolov8s-cls.pt \
   --device mps \
   --epochs 100 \
   --image-size 320 \
-  --batch-size 8
+  --batch-size 8 \
+  --name classic-car-classifier-v3
 ```
 
 Le meilleur checkpoint est créé dans :
 
 ```text
-runs/classify/classic-car-classifier-v1/weights/best.pt
+runs/classify/classic-car-classifier-v3/weights/best.pt
 ```
 
 Copiez-le ensuite vers `weights/classifier-best.pt`. Ce fichier n'est pas
