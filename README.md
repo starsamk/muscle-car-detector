@@ -68,6 +68,54 @@ export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/mustang_body_style_v2.jso
 streamlit run dataset_review_app.py
 ```
 
+### Taxonomie véhicule V3
+
+La V3 définit le premier périmètre multi-modèles : Mustang Fastback, Mustang
+Hardtop, Mustang Convertible, Camaro, Corvette, Charger et `other_car`. Les
+années servent à documenter les sources, mais ne sont pas affichées comme une
+prédiction indépendante. Les fichiers sont `config/taxonomy_vehicle_v3.json`
+et `config/profiles/vehicle_taxonomy_v3.json`.
+
+Les images déjà validées V2 ont été migrées vers cette taxonomie sans recopier
+les sources. Elles alimentent actuellement 222 Fastback, 287 Hardtop et 135
+`other_car`. Les classes Convertible, Camaro, Corvette et Charger restent
+volontairement vides jusqu'à leur collecte et validation dédiées. `other_car`
+conserve ses négatifs validés (Firebird, Chevelle, GTO, Barracuda, Thunderbird,
+Monte Carlo et Road Runner) ; ils ne sont pas artificiellement transformés en
+une des nouvelles classes.
+
+Pour régénérer les métadonnées dérivées localement :
+
+```bash
+python -m scripts.migrate_taxonomy \
+  --manifest datasets/mustang_body_style_v2/cropped/manifest.jsonl \
+  --decisions datasets/mustang_body_style_v2/review/decisions.json \
+  --target-taxonomy config/taxonomy_vehicle_v3.json \
+  --mapping config/mappings/body_style_v2_to_vehicle_v3.json \
+  --output-manifest datasets/vehicle_taxonomy_v3/cropped/manifest.jsonl \
+  --output-decisions datasets/vehicle_taxonomy_v3/review/decisions.json
+```
+
+Le profil `config/profiles/vehicle_taxonomy_v3_bootstrap.json` est réservé à
+la vérification technique des trois classes actuellement disponibles. Il ne
+doit pas servir à produire le poids final multi-modèles : ce poids attendra la
+collecte des quatre classes manquantes.
+
+```bash
+python -m scripts.prepare_classification_dataset \
+  --manifest datasets/vehicle_taxonomy_v3/cropped/manifest.jsonl \
+  --decisions datasets/vehicle_taxonomy_v3/review/decisions.json \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3_bootstrap.json \
+  --output datasets/classification_vehicle_v3_bootstrap
+
+python -m scripts.validate_classification_dataset \
+  --data datasets/classification_vehicle_v3_bootstrap \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3_bootstrap.json \
+  --minimum-per-split 5
+```
+
 ## Construction du dataset
 
 Téléchargez d'abord un petit échantillon pour auditer la qualité des catégories :

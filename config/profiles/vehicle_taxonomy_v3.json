@@ -1,0 +1,14 @@
+{
+  "schema_version": 3,
+  "name": "vehicle_taxonomy_v3",
+  "description": "Classic 1960s target vehicles with a broad open-set negative class.",
+  "class_slugs": [
+    "ford_mustang_fastback_classic",
+    "ford_mustang_hardtop_classic",
+    "ford_mustang_convertible_classic",
+    "chevrolet_camaro_classic",
+    "chevrolet_corvette_classic",
+    "dodge_charger_classic",
+    "other_car"
+  ]
+}

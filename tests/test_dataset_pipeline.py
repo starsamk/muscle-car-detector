@@ -64,6 +64,30 @@ class DatasetConfigurationTests(unittest.TestCase):
             "Ford Mustang Fastback (classic)",
         )
 
+    def test_vehicle_v3_declares_target_and_bootstrap_profiles(self) -> None:
+        """V3 keeps future classes explicit while bootstrap uses only available data."""
+        taxonomy = load_taxonomy(Path("config/taxonomy_vehicle_v3.json"))
+        full_profile = load_profile(
+            Path("config/profiles/vehicle_taxonomy_v3.json"), taxonomy
+        )
+        bootstrap_profile = load_profile(
+            Path("config/profiles/vehicle_taxonomy_v3_bootstrap.json"), taxonomy
+        )
+
+        self.assertEqual(len(full_profile.class_slugs), 7)
+        self.assertEqual(
+            set(bootstrap_profile.class_slugs),
+            {
+                "ford_mustang_fastback_classic",
+                "ford_mustang_hardtop_classic",
+                "other_car",
+            },
+        )
+        self.assertEqual(
+            taxonomy["chevrolet_camaro_classic"].label,
+            "Chevrolet Camaro (classic)",
+        )
+
 
 class TaxonomyMigrationTests(unittest.TestCase):
     """Verify that legacy reviewed data migrates without source mutations."""

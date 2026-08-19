@@ -1,0 +1,134 @@
+{
+  "schema_version": 3,
+  "scope": {
+    "start_year": 1960,
+    "end_year": 1969,
+    "fallback_class": "other_car"
+  },
+  "classes": [
+    {
+      "slug": "ford_mustang_fastback_classic",
+      "display_name": "Ford Mustang Fastback (classic)",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "fastback",
+      "year_start": 1965,
+      "year_end": 1969,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1965 Ford Mustang fastback",
+        "1966 Ford Mustang fastback",
+        "1967 Ford Mustang fastback",
+        "1968 Ford Mustang fastback",
+        "1969 Ford Mustang SportsRoof"
+      ]
+    },
+    {
+      "slug": "ford_mustang_hardtop_classic",
+      "display_name": "Ford Mustang Hardtop (classic)",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "hardtop",
+      "year_start": 1964,
+      "year_end": 1969,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1964 Ford Mustang hardtop",
+        "1965 Ford Mustang hardtop",
+        "1966 Ford Mustang hardtop",
+        "1967 Ford Mustang hardtop",
+        "1968 Ford Mustang hardtop",
+        "1969 Ford Mustang hardtop"
+      ]
+    },
+    {
+      "slug": "ford_mustang_convertible_classic",
+      "display_name": "Ford Mustang Convertible (classic)",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "convertible",
+      "year_start": 1964,
+      "year_end": 1969,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1964 Ford Mustang convertible",
+        "1965 Ford Mustang convertible",
+        "1966 Ford Mustang convertible",
+        "1967 Ford Mustang convertible",
+        "1968 Ford Mustang convertible",
+        "1969 Ford Mustang convertible"
+      ]
+    },
+    {
+      "slug": "chevrolet_camaro_classic",
+      "display_name": "Chevrolet Camaro (classic)",
+      "make": "Chevrolet",
+      "model": "Camaro",
+      "generation": "I",
+      "body_style": "coupe",
+      "year_start": 1967,
+      "year_end": 1969,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1967 Chevrolet Camaro",
+        "1968 Chevrolet Camaro",
+        "1969 Chevrolet Camaro"
+      ]
+    },
+    {
+      "slug": "chevrolet_corvette_classic",
+      "display_name": "Chevrolet Corvette (classic)",
+      "make": "Chevrolet",
+      "model": "Corvette",
+      "generation": "C1–C3",
+      "body_style": "sports car",
+      "year_start": 1960,
+      "year_end": 1969,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1960 Chevrolet Corvette",
+        "1961 Chevrolet Corvette",
+        "1962 Chevrolet Corvette",
+        "1963 Chevrolet Corvette",
+        "1964 Chevrolet Corvette",
+        "1965 Chevrolet Corvette",
+        "1966 Chevrolet Corvette",
+        "1967 Chevrolet Corvette",
+        "1968 Chevrolet Corvette",
+        "1969 Chevrolet Corvette"
+      ]
+    },
+    {
+      "slug": "dodge_charger_classic",
+      "display_name": "Dodge Charger (classic)",
+      "make": "Dodge",
+      "model": "Charger",
+      "generation": "I–II",
+      "body_style": "coupe",
+      "year_start": 1966,
+      "year_end": 1969,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1966 Dodge Charger",
+        "1967 Dodge Charger",
+        "1968 Dodge Charger",
+        "1969 Dodge Charger"
+      ]
+    },
+    {
+      "slug": "other_car",
+      "display_name": "Other car",
+      "make": "Other",
+      "model": "Other",
+      "generation": "",
+      "body_style": "",
+      "year_start": 0,
+      "year_end": 0,
+      "show_year_range": false,
+      "wikimedia_categories": []
+    }
+  ]
+}

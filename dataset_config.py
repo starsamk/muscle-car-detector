@@ -17,6 +17,12 @@ DEFAULT_MUSTANG_BODY_STYLE_TAXONOMY_PATH: Final[Path] = Path(
 DEFAULT_MUSTANG_BODY_STYLE_PROFILE_PATH: Final[Path] = Path(
     "config/profiles/mustang_body_style_v2.json"
 )
+DEFAULT_VEHICLE_TAXONOMY_V3_PATH: Final[Path] = Path(
+    "config/taxonomy_vehicle_v3.json"
+)
+DEFAULT_VEHICLE_TAXONOMY_V3_PROFILE_PATH: Final[Path] = Path(
+    "config/profiles/vehicle_taxonomy_v3.json"
+)
 
 
 class DatasetConfigError(RuntimeError):
@@ -249,6 +255,8 @@ __all__: list[str] = [
     "DEFAULT_MUSTANG_BODY_STYLE_PROFILE_PATH",
     "DEFAULT_MUSTANG_BODY_STYLE_TAXONOMY_PATH",
     "DEFAULT_TAXONOMY_PATH",
+    "DEFAULT_VEHICLE_TAXONOMY_V3_PATH",
+    "DEFAULT_VEHICLE_TAXONOMY_V3_PROFILE_PATH",
     "DatasetConfigError",
     "DatasetProfile",
     "TaxonomyClass",
