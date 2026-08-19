@@ -1,0 +1,8 @@
+{
+  "schema_version": 3,
+  "name": "vehicle_taxonomy_v3_other_car_diversity",
+  "description": "Collect a balanced, review-only campaign of non-target cars for the V3 other_car class.",
+  "class_slugs": [
+    "other_car"
+  ]
+}
