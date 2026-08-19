@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 from collections import Counter
 from pathlib import Path
-from typing import Any, Final, Iterable
+from typing import Any, Final, Iterable, Sequence
 
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 OPEN_IMAGES_CLASS_NAMES: Final[tuple[str, ...]] = (
@@ -172,6 +172,37 @@ def download_image(url: str, destination: Path) -> str:
     return digest.hexdigest()
 
 
+def download_image_with_fallback(
+    urls: Sequence[str], destination: Path
+) -> tuple[str, str]:
+    """Try source URLs in order and return the digest and URL that succeeded.
+
+    Open Images metadata can contain historical Flickr originals that are no
+    longer available. Its thumbnail URL is a valid lower-resolution fallback
+    for a negative candidate and is still retained with attribution metadata.
+
+    Args:
+        urls: Ordered non-empty candidate URLs.
+        destination: Local image destination.
+
+    Returns:
+        SHA-256 digest and the successful source URL.
+
+    Raises:
+        OpenImagesCollectionError: If every candidate URL fails.
+    """
+    errors: list[str] = []
+    for url in urls:
+        try:
+            return download_image(url, destination), url
+        except OpenImagesCollectionError as error:
+            errors.append(str(error))
+            LOGGER.warning("Open Images URL unavailable, trying fallback: %s", url)
+    raise OpenImagesCollectionError(
+        "All Open Images source URLs failed: " + "; ".join(errors)
+    )
+
+
 def load_metadata(path: Path, selected_ids: set[str]) -> dict[str, dict[str, str]]:
     """Load source metadata only for selected image IDs."""
     if not path.is_file():
@@ -250,16 +281,23 @@ def main() -> None:
         if source is None or not license_is_allowed(source["License"]):
             LOGGER.warning("Skipping missing or unsupported license: %s", image_id)
             continue
-        source_url: str = source["OriginalURL"] or source["Thumbnail300KURL"]
-        if not source_url:
+        source_urls: list[str] = [
+            url
+            for url in (source["OriginalURL"], source["Thumbnail300KURL"])
+            if url
+        ]
+        if not source_urls:
             continue
         image_path: Path = output_directory / "images" / "other_car" / f"{image_id}.jpg"
         image_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             if image_path.exists():
                 image_hash: str = hashlib.sha256(image_path.read_bytes()).hexdigest()
+                source_url: str = source_urls[0]
             else:
-                image_hash = download_image(source_url, image_path)
+                image_hash, source_url = download_image_with_fallback(
+                    source_urls, image_path
+                )
         except OpenImagesCollectionError:
             LOGGER.exception("Failed to download Open Images image %s", image_id)
             continue
@@ -277,6 +315,7 @@ def main() -> None:
             "source_image_id": image_id,
             "source_title": source["Title"],
             "source_page": source["OriginalLandingURL"],
+            "source_image_url": source_url,
             "author": source["Author"],
             "license": source["License"],
             "license_url": source["License"],
