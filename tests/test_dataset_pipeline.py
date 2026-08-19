@@ -151,6 +151,29 @@ class TrainingConfigurationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_training_options(arguments, Path("/tmp/classification"), "mps")
 
+    def test_freeze_and_patience_are_forwarded_to_ultralytics(self) -> None:
+        """The final V5 recipe must preserve its anti-forgetting controls."""
+        arguments = parse_arguments(
+            ["--freeze", "9", "--patience", "10", "--learning-rate", "0.0003"]
+        )
+
+        options = build_training_options(
+            arguments,
+            Path("/tmp/classification"),
+            "mps",
+        )
+
+        self.assertEqual(options["freeze"], 9)
+        self.assertEqual(options["patience"], 10)
+        self.assertEqual(options["lr0"], 0.0003)
+
+    def test_invalid_freeze_is_rejected(self) -> None:
+        """A negative layer count must stop before starting a training run."""
+        arguments = parse_arguments(["--freeze", "-1"])
+
+        with self.assertRaises(ValueError):
+            build_training_options(arguments, Path("/tmp/classification"), "mps")
+
 
 class TaxonomyMigrationTests(unittest.TestCase):
     """Verify that legacy reviewed data migrates without source mutations."""
