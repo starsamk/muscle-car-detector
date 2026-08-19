@@ -210,16 +210,28 @@ def main() -> None:
         for record in filtered_records
         if str(record.get("record_id", "")) not in decisions
     ]
+    reviewable_profile_records: list[dict[str, Any]] = [
+        record
+        for record in profile_records
+        if str(record.get("record_id", "")) not in deleted_record_ids
+    ]
     reviewed_count: int = sum(
-        str(record.get("record_id", "")) in decisions for record in profile_records
+        str(record.get("record_id", "")) in decisions
+        for record in reviewable_profile_records
     )
-    st.sidebar.metric("Progression", f"{reviewed_count}/{len(profile_records)}")
+    total_reviewable: int = len(reviewable_profile_records)
+    pending_count: int = total_reviewable - reviewed_count
+    st.sidebar.metric(
+        "Progression globale",
+        f"{reviewed_count}/{total_reviewable}",
+    )
+    st.sidebar.metric("Images à revoir", pending_count)
     if deleted_record_ids:
         st.sidebar.caption(
             f"{len(deleted_record_ids)} image(s) supprimée(s) de la revue."
         )
-    if profile_records:
-        st.sidebar.progress(reviewed_count / len(profile_records))
+    if total_reviewable:
+        st.sidebar.progress(reviewed_count / total_reviewable)
 
     if not filtered_records:
         st.info("Aucune image ne correspond à ce filtre.")
