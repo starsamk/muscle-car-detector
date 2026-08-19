@@ -205,16 +205,10 @@ class TaxonomyMigrationTests(unittest.TestCase):
             }
         ]
 
-        migrated = migrate_manifest_records(
-            records, self.mapping, self.target_slugs
-        )
+        migrated = migrate_manifest_records(records, self.mapping, self.target_slugs)
 
-        self.assertEqual(
-            records[0]["class_slug"], "ford_mustang_fastback_1967_1968"
-        )
-        self.assertEqual(
-            migrated[0]["class_slug"], "ford_mustang_fastback_classic"
-        )
+        self.assertEqual(records[0]["class_slug"], "ford_mustang_fastback_1967_1968")
+        self.assertEqual(migrated[0]["class_slug"], "ford_mustang_fastback_classic")
         self.assertEqual(
             migrated[0]["legacy_class_slug"],
             "ford_mustang_fastback_1967_1968",
@@ -238,9 +232,7 @@ class TaxonomyMigrationTests(unittest.TestCase):
             migrated["record-1"].class_slug,
             "ford_mustang_hardtop_classic",
         )
-        self.assertEqual(
-            migrated["record-1"].reviewed_at, decision.reviewed_at
-        )
+        self.assertEqual(migrated["record-1"].reviewed_at, decision.reviewed_at)
 
     def test_unknown_legacy_class_fails_migration(self) -> None:
         """Unmapped labels must stop migration instead of silently changing data."""
@@ -300,9 +292,7 @@ class ReviewStoreTests(unittest.TestCase):
             path = Path(directory) / "deleted.json"
             save_deleted_record_ids(path, {"record-2", "record-1"})
 
-            self.assertEqual(
-                load_deleted_record_ids(path), {"record-1", "record-2"}
-            )
+            self.assertEqual(load_deleted_record_ids(path), {"record-1", "record-2"})
 
     def test_wikimedia_exclusions_load_source_identities(self) -> None:
         """Independent collection excludes known titles, pages, and hashes."""
@@ -361,9 +351,7 @@ class ReviewStoreTests(unittest.TestCase):
 
         self.assertEqual(summary["false_positive_count"], 1)
         self.assertEqual(summary["false_positive_rate"], 0.5)
-        self.assertEqual(
-            summary["negative_by_category"][""]["false_positive_count"], 1
-        )
+        self.assertEqual(summary["negative_by_category"][""]["false_positive_count"], 1)
         self.assertEqual(summary["threshold_sweep"][0]["threshold"], 0.4)
 
     def test_split_assignment_is_deterministic(self) -> None:
@@ -531,6 +519,7 @@ class ReviewStoreTests(unittest.TestCase):
         )
 
         self.assertEqual(set(candidates), {"new-candidate"})
+
 
 if __name__ == "__main__":
     unittest.main()

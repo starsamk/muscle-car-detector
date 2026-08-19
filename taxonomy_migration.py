@@ -115,9 +115,7 @@ def migrate_manifest_records(
             raise TaxonomyMigrationError(
                 f"Manifest record {record_index} has no class_slug."
             )
-        target_slug: str = migrate_class_slug(
-            legacy_slug, mapping, target_slugs
-        )
+        target_slug: str = migrate_class_slug(legacy_slug, mapping, target_slugs)
         migrated_record: dict[str, Any] = {**record, "class_slug": target_slug}
         if target_slug != legacy_slug:
             migrated_record["legacy_class_slug"] = legacy_slug

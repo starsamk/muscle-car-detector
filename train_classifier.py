@@ -20,9 +20,7 @@ def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespac
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="Fine-tune a YOLOv8 classifier on the prepared dataset."
     )
-    parser.add_argument(
-        "--data", type=Path, default=Path("datasets/classification")
-    )
+    parser.add_argument("--data", type=Path, default=Path("datasets/classification"))
     parser.add_argument("--model", default="yolov8s-cls.pt")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--image-size", type=int, default=320)

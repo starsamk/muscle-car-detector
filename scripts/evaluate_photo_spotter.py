@@ -131,10 +131,10 @@ def build_field_prediction(
     expected_class: str = str(record.get("class_slug", "")).strip()
     primary: CarPrediction | None = select_primary_prediction(predictions)
     predicted_class: str = primary.class_slug if primary else NO_DETECTION
-    is_false_positive: bool = (
-        expected_class == "other_car"
-        and predicted_class not in {"other_car", NO_DETECTION}
-    )
+    is_false_positive: bool = expected_class == "other_car" and predicted_class not in {
+        "other_car",
+        NO_DETECTION,
+    }
     return FieldPrediction(
         expected_class=expected_class,
         predicted_class=predicted_class,
@@ -213,18 +213,12 @@ def summarize_predictions(
                 and prediction.classification_confidence < threshold
             ):
                 predicted_class = "other_car"
-            threshold_predictions.append(
-                (prediction.expected_class, predicted_class)
-            )
+            threshold_predictions.append((prediction.expected_class, predicted_class))
         target_predictions: list[tuple[str, str]] = [
-            result
-            for result in threshold_predictions
-            if result[0] != "other_car"
+            result for result in threshold_predictions if result[0] != "other_car"
         ]
         negative_threshold_predictions: list[tuple[str, str]] = [
-            result
-            for result in threshold_predictions
-            if result[0] == "other_car"
+            result for result in threshold_predictions if result[0] == "other_car"
         ]
         threshold_sweep.append(
             {
@@ -235,8 +229,7 @@ def summarize_predictions(
                 )
                 / len(threshold_predictions),
                 "target_accuracy": sum(
-                    expected == predicted
-                    for expected, predicted in target_predictions
+                    expected == predicted for expected, predicted in target_predictions
                 )
                 / len(target_predictions)
                 if target_predictions
@@ -262,13 +255,10 @@ def summarize_predictions(
     return {
         "total": len(prediction_list),
         "correct": sum(prediction.is_correct for prediction in prediction_list),
-        "accuracy": sum(
-            prediction.is_correct for prediction in prediction_list
-        )
+        "accuracy": sum(prediction.is_correct for prediction in prediction_list)
         / len(prediction_list),
         "no_detection": sum(
-            prediction.predicted_class == NO_DETECTION
-            for prediction in prediction_list
+            prediction.predicted_class == NO_DETECTION for prediction in prediction_list
         ),
         "negative_total": len(negative_predictions),
         "false_positive_count": false_positive_count,
@@ -326,9 +316,7 @@ def main() -> None:
         local_path: Path = Path(str(record.get("local_path", "")))
         try:
             with Image.open(local_path) as image:
-                _, car_predictions = spotter.predict_with_details(
-                    image.convert("RGB")
-                )
+                _, car_predictions = spotter.predict_with_details(image.convert("RGB"))
         except (OSError, UnidentifiedImageError, PhotoModelError) as error:
             LOGGER.warning("Unable to evaluate %s: %s", local_path, error)
             car_predictions = []

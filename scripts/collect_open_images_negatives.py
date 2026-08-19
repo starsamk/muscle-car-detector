@@ -109,7 +109,9 @@ def box_area(row: dict[str, str]) -> float:
         width: float = float(row["XMax"]) - float(row["XMin"])
         height: float = float(row["YMax"]) - float(row["YMin"])
     except (KeyError, TypeError, ValueError) as error:
-        raise OpenImagesCollectionError("Invalid Open Images box coordinates.") from error
+        raise OpenImagesCollectionError(
+            "Invalid Open Images box coordinates."
+        ) from error
     return max(0.0, width) * max(0.0, height)
 
 
@@ -306,7 +308,9 @@ def load_metadata(path: Path, selected_ids: set[str]) -> dict[str, dict[str, str
                         )
                     }
     except (OSError, csv.Error) as error:
-        raise OpenImagesCollectionError(f"Unable to read image metadata '{path}'.") from error
+        raise OpenImagesCollectionError(
+            f"Unable to read image metadata '{path}'."
+        ) from error
     return metadata
 
 
@@ -318,7 +322,9 @@ def load_annotations(path: Path) -> list[dict[str, str]]:
         with path.open(newline="", encoding="utf-8") as input_file:
             return list(csv.DictReader(input_file))
     except (OSError, csv.Error) as error:
-        raise OpenImagesCollectionError(f"Unable to read annotations '{path}'.") from error
+        raise OpenImagesCollectionError(
+            f"Unable to read annotations '{path}'."
+        ) from error
 
 
 def append_manifest_record(path: Path, record: dict[str, Any]) -> None:
@@ -367,9 +373,7 @@ def main() -> None:
             LOGGER.warning("Skipping missing or unsupported license: %s", image_id)
             continue
         source_urls: list[str] = [
-            url
-            for url in (source["OriginalURL"], source["Thumbnail300KURL"])
-            if url
+            url for url in (source["OriginalURL"], source["Thumbnail300KURL"]) if url
         ]
         if not source_urls:
             continue
