@@ -32,6 +32,12 @@ DEFAULT_MANIFEST: Final[Path] = Path(
 DEFAULT_DECISIONS: Final[Path] = Path(
     os.getenv("CAR_SPOTTER_REVIEW_DECISIONS", "datasets/review/decisions.json")
 )
+REVIEW_TAXONOMY_PATH: Final[Path] = Path(
+    os.getenv("CAR_SPOTTER_REVIEW_TAXONOMY_PATH", str(DEFAULT_TAXONOMY_PATH))
+)
+REVIEW_PROFILE_PATH: Final[Path] = Path(
+    os.getenv("CAR_SPOTTER_REVIEW_PROFILE_PATH", str(DEFAULT_MVP_PROFILE_PATH))
+)
 
 
 class ReviewAppError(RuntimeError):
@@ -144,8 +150,8 @@ def main() -> None:
     )
 
     try:
-        taxonomy = load_taxonomy(DEFAULT_TAXONOMY_PATH)
-        profile = load_profile(DEFAULT_MVP_PROFILE_PATH, taxonomy)
+        taxonomy = load_taxonomy(REVIEW_TAXONOMY_PATH)
+        profile = load_profile(REVIEW_PROFILE_PATH, taxonomy)
         records: list[dict[str, Any]] = load_manifest(str(DEFAULT_MANIFEST))
         decisions: dict[str, ReviewDecision] = load_decisions(DEFAULT_DECISIONS)
     except (DatasetConfigError, ReviewAppError, ReviewStoreError) as error:

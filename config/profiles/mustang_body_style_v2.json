@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "name": "mustang_body_style_v2",
+  "description": "Classic Mustang recognition by body style, without year prediction.",
+  "class_slugs": [
+    "ford_mustang_fastback_classic",
+    "ford_mustang_hardtop_classic",
+    "ford_mustang_convertible_classic",
+    "other_car"
+  ]
+}

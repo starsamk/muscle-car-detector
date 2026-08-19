@@ -1,0 +1,81 @@
+{
+  "schema_version": 2,
+  "scope": {
+    "start_year": 1964,
+    "end_year": 1970,
+    "fallback_class": "other_car"
+  },
+  "classes": [
+    {
+      "slug": "ford_mustang_fastback_classic",
+      "display_name": "Ford Mustang Fastback (classic)",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "fastback",
+      "year_start": 1965,
+      "year_end": 1970,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1965 Ford Mustang fastback",
+        "1966 Ford Mustang fastback",
+        "1967 Ford Mustang fastback",
+        "1968 Ford Mustang fastback",
+        "1969 Ford Mustang SportsRoof",
+        "1970 Ford Mustang SportsRoof"
+      ]
+    },
+    {
+      "slug": "ford_mustang_hardtop_classic",
+      "display_name": "Ford Mustang Hardtop (classic)",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "hardtop",
+      "year_start": 1964,
+      "year_end": 1970,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1964 Ford Mustang hardtop",
+        "1965 Ford Mustang hardtop",
+        "1966 Ford Mustang hardtop",
+        "1967 Ford Mustang hardtop",
+        "1968 Ford Mustang hardtop",
+        "1969 Ford Mustang hardtop",
+        "1970 Ford Mustang hardtop"
+      ]
+    },
+    {
+      "slug": "ford_mustang_convertible_classic",
+      "display_name": "Ford Mustang Convertible (classic)",
+      "make": "Ford",
+      "model": "Mustang",
+      "generation": "I",
+      "body_style": "convertible",
+      "year_start": 1964,
+      "year_end": 1970,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "1964 Ford Mustang convertible",
+        "1965 Ford Mustang convertible",
+        "1966 Ford Mustang convertible",
+        "1967 Ford Mustang convertible",
+        "1968 Ford Mustang convertible",
+        "1969 Ford Mustang convertible",
+        "1970 Ford Mustang convertible"
+      ]
+    },
+    {
+      "slug": "other_car",
+      "display_name": "Other car",
+      "make": "Other",
+      "model": "Other",
+      "generation": "",
+      "body_style": "",
+      "year_start": 0,
+      "year_end": 0,
+      "show_year_range": false,
+      "wikimedia_categories": []
+    }
+  ]
+}

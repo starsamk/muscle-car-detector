@@ -42,6 +42,32 @@ d'ajouter les autres générations, puis Charger, Challenger, Camaro, Corvette e
 Impala. Le profil est défini dans `config/profiles/mustang_mvp.json` sans réduire
 la taxonomie cible complète.
 
+### Transition vers les carrosseries Mustang
+
+La v2 prépare un modèle plus robuste : il ne prédit plus une année, mais une
+carrosserie Mustang classique (`Fastback`, `Hardtop` ou `Convertible`). La v1 et
+son poids actuel restent inchangés pendant la transition. La nouvelle taxonomie
+est dans `config/taxonomy_mustang_body_style_v2.json` et son profil dans
+`config/profiles/mustang_body_style_v2.json`.
+
+Les images et décisions déjà revues peuvent être migrées sans les recopier ni
+les réviser. La commande écrit uniquement de nouveaux manifestes dérivés :
+
+```bash
+python -m scripts.migrate_taxonomy
+```
+
+Les sorties par défaut sont `datasets/mustang_body_style_v2/`. Pour ouvrir la
+revue de cette future version, configurez les chemins suivants avant Streamlit :
+
+```bash
+export CAR_SPOTTER_REVIEW_MANIFEST=datasets/mustang_body_style_v2/cropped/manifest.jsonl
+export CAR_SPOTTER_REVIEW_DECISIONS=datasets/mustang_body_style_v2/review/decisions.json
+export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_mustang_body_style_v2.json
+export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/mustang_body_style_v2.json
+streamlit run dataset_review_app.py
+```
+
 ## Construction du dataset
 
 Téléchargez d'abord un petit échantillon pour auditer la qualité des catégories :

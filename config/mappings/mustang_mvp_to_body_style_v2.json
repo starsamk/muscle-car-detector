@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "name": "mustang_mvp_to_body_style_v2",
+  "source_profile": "mustang_mvp",
+  "target_profile": "mustang_body_style_v2",
+  "class_mapping": {
+    "ford_mustang_hardtop_1964_1966": "ford_mustang_hardtop_classic",
+    "ford_mustang_hardtop_1967_1968": "ford_mustang_hardtop_classic",
+    "ford_mustang_hardtop_1969_1970": "ford_mustang_hardtop_classic",
+    "ford_mustang_fastback_1965_1966": "ford_mustang_fastback_classic",
+    "ford_mustang_fastback_1967_1968": "ford_mustang_fastback_classic",
+    "ford_mustang_sportsroof_1969_1970": "ford_mustang_fastback_classic",
+    "ford_mustang_convertible_1964_1966": "ford_mustang_convertible_classic",
+    "ford_mustang_convertible_1967_1968": "ford_mustang_convertible_classic",
+    "other_car": "other_car"
+  }
+}
