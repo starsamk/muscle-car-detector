@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
 
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse classifier training arguments.
 
     Returns:
@@ -29,7 +30,21 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--name", default="classic-car-classifier-v1")
-    return parser.parse_args()
+    parser.add_argument(
+        "--optimizer",
+        default=None,
+        help="Ultralytics optimizer. Defaults to AdamW when --learning-rate is set.",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        help=(
+            "Initial learning rate (Ultralytics lr0). Leave unset to keep the "
+            "Ultralytics default."
+        ),
+    )
+    return parser.parse_args(arguments)
 
 
 def resolve_device(requested_device: str) -> str:
@@ -52,6 +67,50 @@ def resolve_device(requested_device: str) -> str:
     if torch.cuda.is_available():
         return "0"
     return "cpu"
+
+
+def build_training_options(
+    arguments: argparse.Namespace,
+    data_directory: Path,
+    device: str,
+) -> dict[str, Any]:
+    """Build validated keyword arguments for Ultralytics training.
+
+    Args:
+        arguments: Parsed command-line arguments.
+        data_directory: Absolute directory containing train, val and test splits.
+        device: Resolved PyTorch device identifier.
+
+    Returns:
+        Keyword arguments accepted by ``YOLO.train``.
+
+    Raises:
+        ValueError: If an explicitly supplied learning rate is not positive.
+    """
+    learning_rate: float | None = arguments.learning_rate
+    if learning_rate is not None and learning_rate <= 0:
+        raise ValueError("--learning-rate must be strictly positive.")
+
+    options: dict[str, Any] = {
+        "data": str(data_directory),
+        "epochs": arguments.epochs,
+        "imgsz": arguments.image_size,
+        "batch": arguments.batch_size,
+        "device": device,
+        "workers": arguments.workers,
+        "project": "runs/classify",
+        "name": arguments.name,
+        "patience": 20,
+        "seed": 42,
+        "deterministic": True,
+        "plots": True,
+    }
+    if learning_rate is not None:
+        options["lr0"] = learning_rate
+        options["optimizer"] = arguments.optimizer or "AdamW"
+    elif arguments.optimizer is not None:
+        options["optimizer"] = arguments.optimizer
+    return options
 
 
 def main() -> None:
@@ -81,21 +140,13 @@ def main() -> None:
         data_directory,
         device,
     )
-    model: object = YOLO(arguments.model)
-    model.train(  # type: ignore[attr-defined]
-        data=str(data_directory),
-        epochs=arguments.epochs,
-        imgsz=arguments.image_size,
-        batch=arguments.batch_size,
-        device=device,
-        workers=arguments.workers,
-        project="runs/classify",
-        name=arguments.name,
-        patience=20,
-        seed=42,
-        deterministic=True,
-        plots=True,
+    training_options: dict[str, Any] = build_training_options(
+        arguments,
+        data_directory,
+        device,
     )
+    model: Any = YOLO(arguments.model)
+    model.train(**training_options)
 
 
 if __name__ == "__main__":
