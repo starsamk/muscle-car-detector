@@ -1,0 +1,11 @@
+{
+  "schema_version": 3,
+  "name": "vehicle_taxonomy_v3_missing_positive_collection",
+  "description": "Wikimedia collection profile for the four unpopulated V3 target classes.",
+  "class_slugs": [
+    "ford_mustang_convertible_classic",
+    "chevrolet_camaro_classic",
+    "chevrolet_corvette_classic",
+    "dodge_charger_classic"
+  ]
+}

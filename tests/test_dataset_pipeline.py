@@ -15,6 +15,12 @@ from dataset_config import (
 from review_store import ReviewDecision, load_decisions, save_decisions
 from scripts.crop_dataset import Detection, padded_box, select_detection
 from scripts.prepare_classification_dataset import split_for_group
+from scripts.merge_review_dataset import (
+    DatasetMergeError,
+    merge_decisions,
+    merge_manifest_records,
+)
+from scripts.collect_open_images_negatives import select_candidates
 from taxonomy_migration import (
     TaxonomyMigrationError,
     load_class_mapping,
@@ -207,6 +213,72 @@ class ReviewStoreTests(unittest.TestCase):
         second = split_for_group("author:example", 0.70, 0.15)
 
         self.assertEqual(first, second)
+
+    def test_manifest_merge_deduplicates_by_sha256(self) -> None:
+        """The first source record wins when two manifests contain one image."""
+        merged = merge_manifest_records(
+            [
+                [{"record_id": "first", "sha256": "same"}],
+                [{"record_id": "second", "sha256": "same"}],
+            ]
+        )
+
+        self.assertEqual([record["record_id"] for record in merged], ["first"])
+
+    def test_manifest_merge_rejects_record_id_collision(self) -> None:
+        """A reused record ID must fail instead of silently losing metadata."""
+        with self.assertRaises(DatasetMergeError):
+            merge_manifest_records(
+                [
+                    [{"record_id": "same", "sha256": "first"}],
+                    [{"record_id": "same", "sha256": "second"}],
+                ]
+            )
+
+    def test_decision_merge_rejects_conflicts(self) -> None:
+        """Conflicting human labels must never be resolved implicitly."""
+        first = ReviewDecision.create("record-1", "accepted", "other_car")
+        second = ReviewDecision.create(
+            "record-1", "accepted", "ford_mustang_fastback_classic"
+        )
+
+        with self.assertRaises(DatasetMergeError):
+            merge_decisions([{first.record_id: first}, {second.record_id: second}])
+
+    def test_open_images_candidates_exclude_inside_and_group_boxes(self) -> None:
+        """Negative candidates must represent visible individual vehicles."""
+        rows = [
+            {
+                "ImageID": "outside",
+                "LabelName": "/m/car",
+                "XMin": "0.1",
+                "XMax": "0.9",
+                "YMin": "0.1",
+                "YMax": "0.9",
+                "IsInside": "0",
+                "IsGroupOf": "0",
+            },
+            {
+                "ImageID": "inside",
+                "LabelName": "/m/car",
+                "XMin": "0.1",
+                "XMax": "0.9",
+                "YMin": "0.1",
+                "YMax": "0.9",
+                "IsInside": "1",
+                "IsGroupOf": "0",
+            },
+        ]
+
+        candidates = select_candidates(
+            rows,
+            {"/m/car": "Car"},
+            limit_per_class=5,
+            max_images=5,
+            minimum_box_area=0.05,
+        )
+
+        self.assertEqual(set(candidates), {"outside"})
 
 
 if __name__ == "__main__":
