@@ -22,7 +22,12 @@ from dataset_config import (
     load_profile,
     load_taxonomy,
 )
-from review_store import ReviewDecision, ReviewStoreError, load_decisions
+from review_store import (
+    ReviewDecision,
+    ReviewStoreError,
+    load_decisions,
+    load_deleted_record_ids,
+)
 
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 SPLITS: Final[tuple[str, ...]] = ("train", "val", "test")
@@ -81,6 +86,12 @@ def parse_arguments() -> argparse.Namespace:
         "--decisions",
         type=Path,
         default=Path("datasets/review/decisions.json"),
+    )
+    parser.add_argument(
+        "--deleted",
+        type=Path,
+        default=None,
+        help="JSON store of records excluded from review and training.",
     )
     parser.add_argument(
         "--allow-unreviewed",
@@ -492,9 +503,19 @@ def main() -> None:
     profile = load_profile(arguments.profile, taxonomy)
     allowed_classes: set[str] = set(profile.class_slugs)
     decisions: dict[str, ReviewDecision] = load_decisions(arguments.decisions)
+    deleted_path: Path = arguments.deleted or arguments.decisions.with_name(
+        "deleted.json"
+    )
+    deleted_record_ids: set[str] = load_deleted_record_ids(deleted_path)
     raw_records: list[dict[str, Any]] = load_manifest(arguments.manifest)
     validated_records: list[ImageRecord] = []
     for raw_record in raw_records:
+        if str(raw_record.get("record_id", "")).strip() in deleted_record_ids:
+            LOGGER.info(
+                "Skipping deleted record: %s",
+                raw_record.get("record_id", ""),
+            )
+            continue
         record: ImageRecord | None = validate_record(
             raw_record,
             arguments.minimum_width,

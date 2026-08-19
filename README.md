@@ -182,6 +182,7 @@ Pour ouvrir cette file dans Streamlit :
 ```bash
 export CAR_SPOTTER_REVIEW_MANIFEST=datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
 export CAR_SPOTTER_REVIEW_DECISIONS=datasets/vehicle_taxonomy_v3/review_queue/decisions.json
+export CAR_SPOTTER_REVIEW_DELETED=datasets/vehicle_taxonomy_v3/review_queue/deleted.json
 export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_vehicle_v3.json
 export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/vehicle_taxonomy_v3.json
 streamlit run dataset_review_app.py --server.port 8503
@@ -223,7 +224,10 @@ streamlit run dataset_review_app.py
 Chaque recadrage doit être accepté, corrigé vers une autre classe du profil, ou
 rejeté. Les décisions sont sauvegardées au fil de l'eau dans
 `datasets/review/decisions.json`. Le dataset final exige par défaut une décision
-humaine positive.
+humaine positive. Le bouton « Supprimer cette image de la revue » l'exclut via
+un store séparé (`deleted.json`) sans modifier les décisions existantes ni le
+manifeste source. Cette exclusion est également appliquée lors de la préparation
+du dataset de classification.
 
 La classe `other_car` est alimentée avec des véhicules proches mais hors cible :
 Pontiac GTO, Firebird, Chevelle, Barracuda, ainsi que des versions modernes de
