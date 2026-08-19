@@ -31,6 +31,12 @@ from scripts.merge_review_dataset import (
     merge_manifest_records,
 )
 from scripts.collect_open_images_negatives import select_candidates
+from scripts.download_wikimedia import load_manifest_exclusions
+from scripts.evaluate_photo_spotter import (
+    NO_DETECTION,
+    FieldPrediction,
+    summarize_predictions,
+)
 from taxonomy_migration import (
     TaxonomyMigrationError,
     load_class_mapping,
@@ -226,6 +232,68 @@ class ReviewStoreTests(unittest.TestCase):
             self.assertEqual(
                 load_deleted_record_ids(path), {"record-1", "record-2"}
             )
+
+    def test_wikimedia_exclusions_load_source_identities(self) -> None:
+        """Independent collection excludes known titles, pages, and hashes."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "manifest.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "source_title": "File:known.jpg",
+                        "source_page": "https://example.test/known",
+                        "sha256": "known-sha",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            titles, pages, hashes = load_manifest_exclusions([path])
+
+            self.assertEqual(titles, {"File:known.jpg"})
+            self.assertEqual(pages, {"https://example.test/known"})
+            self.assertEqual(hashes, {"known-sha"})
+
+    def test_field_summary_measures_negative_false_positives(self) -> None:
+        """A target prediction on other_car increments the false-positive rate."""
+        predictions = [
+            FieldPrediction(
+                expected_class="other_car",
+                predicted_class="ford_mustang_fastback_classic",
+                is_correct=False,
+                is_false_positive=True,
+                detection_count=1,
+                detection_confidence=0.9,
+                classification_confidence=0.8,
+                local_path="negative.jpg",
+                source_category="",
+                source_page="",
+                source_title="",
+            ),
+            FieldPrediction(
+                expected_class="other_car",
+                predicted_class=NO_DETECTION,
+                is_correct=False,
+                is_false_positive=False,
+                detection_count=0,
+                detection_confidence=0.0,
+                classification_confidence=0.0,
+                local_path="missed.jpg",
+                source_category="",
+                source_page="",
+                source_title="",
+            ),
+        ]
+
+        summary = summarize_predictions(predictions)
+
+        self.assertEqual(summary["false_positive_count"], 1)
+        self.assertEqual(summary["false_positive_rate"], 0.5)
+        self.assertEqual(
+            summary["negative_by_category"][""]["false_positive_count"], 1
+        )
+        self.assertEqual(summary["threshold_sweep"][0]["threshold"], 0.4)
 
     def test_split_assignment_is_deterministic(self) -> None:
         """The same source group must always remain in the same split."""
