@@ -38,7 +38,7 @@ class PhotoSpotterConfig:
     classifier_weights: Path = DEFAULT_CLASSIFIER_WEIGHTS
     taxonomy_path: Path = DEFAULT_TAXONOMY_PATH
     detection_confidence: float = 0.25
-    classification_confidence: float = 0.40
+    classification_confidence: float = 0.50
     iou_threshold: float = 0.45
     device: str = "auto"
 
@@ -60,7 +60,7 @@ class PhotoSpotterConfig:
                 os.getenv("CAR_SPOTTER_DETECTION_CONFIDENCE", "0.25")
             )
             classification_confidence: float = float(
-                os.getenv("CAR_SPOTTER_CLASSIFICATION_CONFIDENCE", "0.40")
+                os.getenv("CAR_SPOTTER_CLASSIFICATION_CONFIDENCE", "0.50")
             )
             iou_threshold: float = float(os.getenv("CAR_SPOTTER_IOU", "0.45"))
         except ValueError as error:

@@ -349,7 +349,7 @@ bien plus que le minimum technique de cinq images par classe et par split.
 `--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
 servir à produire le poids publié.
 
-## Fine-tuning candidat V5 sur Apple Silicon
+## Fine-tuning V5 sur Apple Silicon
 
 Le V5 part du checkpoint V4 générique, qui avait les meilleurs résultats sur
 `other_car`. Les neuf couches du backbone sont gelées : le classifieur apprend
@@ -380,14 +380,19 @@ checkpoint est créé dans :
 runs/classify/classic-car-classifier-v5-final/weights/best.pt
 ```
 
-N'écrasez `weights/classifier-best.pt` qu'après les validations interne et
-terrain décrites ci-dessous. Avant toute promotion, vérifiez Fastback et
-Hardtop à au moins 80 % sur le test interne, `other_car` à au moins 90 %, un
-taux de faux positifs terrain `other_car` inférieur ou égal à 12,5 % et une
-précision terrain cible d'au moins 60 %. Sinon, conservez le poids V3 actif.
-Le résultat de la première exécution V5 est consigné dans
-[`reports/model_v5_evaluation.md`](reports/model_v5_evaluation.md). Ce fichier
-de poids n'est pas versionné dans Git.
+Les résultats de l'exécution V5 sont consignés dans
+[`reports/model_v5_evaluation.md`](reports/model_v5_evaluation.md). Cette
+évaluation est adaptée à un MVP personnel, mais ne respecte pas tous les
+seuils stricts définis pour une mise en production. Le poids actif est donc
+figé comme une version expérimentale personnelle, avec un seuil applicatif de
+classification à 0,50. Le poids V3 précédent est conservé localement dans
+`weights/classifier-v3-best.pt` comme sauvegarde. Les poids ne sont pas
+versionnés dans Git.
+
+À partir de cette promotion, le backend et le dataset V5 sont gelés. Toute
+évolution future devra faire l'objet d'une nouvelle version et d'une nouvelle
+évaluation indépendante ; elle ne doit pas modifier silencieusement le poids
+actif ni les décisions du dataset publié.
 
 ## Évaluation terrain indépendante
 

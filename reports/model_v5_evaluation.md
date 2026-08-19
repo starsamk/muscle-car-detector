@@ -33,7 +33,14 @@ Sur les 80 photos du lot terrain indépendant :
 
 ## Décision
 
-Le candidat V5 **n'est pas promu**. Il échoue aux seuils définis avant
-l'entraînement : Fastback, Hardtop et `other_car` sont sous leurs objectifs
-internes, et le taux de faux positifs au seuil applicatif 0,50 reste supérieur
-à 12,5 %. Le poids actif V3 demeure inchangé.
+V5 est promu comme modèle final du MVP personnel au seuil applicatif de 0,50.
+Il améliore nettement le comportement terrain observé par rapport à V3 et
+atteint 60,4 % de précision sur les images cibles. Le taux de faux positifs
+`other_car` reste à 15,6 % et dépasse donc le seuil strict de 12,5 % défini
+pour une mise en production : ce modèle est expérimental et ne constitue pas
+une garantie de reconnaissance fiable dans tous les cas.
+
+Le poids V3 est conservé localement comme sauvegarde dans
+`weights/classifier-v3-best.pt`. Le backend et le dataset V5 sont désormais
+gelés ; toute amélioration ultérieure devra commencer une nouvelle version et
+une nouvelle campagne d'évaluation.

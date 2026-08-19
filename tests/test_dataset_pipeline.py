@@ -38,6 +38,7 @@ from scripts.evaluate_photo_spotter import (
     summarize_predictions,
 )
 from train_classifier import build_training_options, parse_arguments
+from photo_model import PhotoSpotterConfig
 from taxonomy_migration import (
     TaxonomyMigrationError,
     load_class_mapping,
@@ -73,6 +74,12 @@ class DatasetConfigurationTests(unittest.TestCase):
             )
             with self.assertRaises(DatasetConfigError):
                 load_profile(path, taxonomy)
+
+    def test_final_photo_model_defaults_to_conservative_threshold(self) -> None:
+        """The final personal MVP uses the validated 0.50 threshold by default."""
+        config = PhotoSpotterConfig()
+
+        self.assertEqual(config.classification_confidence, 0.50)
 
     def test_body_style_v2_has_unambiguous_labels(self) -> None:
         """V2 labels must not expose an unsupported production-year prediction."""

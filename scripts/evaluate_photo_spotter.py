@@ -63,7 +63,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--device", default="auto")
     parser.add_argument("--detection-confidence", type=float, default=0.25)
-    parser.add_argument("--classification-confidence", type=float, default=0.40)
+    parser.add_argument("--classification-confidence", type=float, default=0.50)
     parser.add_argument(
         "--output-csv",
         type=Path,
