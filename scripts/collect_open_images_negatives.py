@@ -22,6 +22,7 @@ OPEN_IMAGES_CLASS_NAMES: Final[tuple[str, ...]] = (
     "Truck",
     "Van",
 )
+DEFAULT_VEHICLE_CLASSES: Final[tuple[str, ...]] = ("Car",)
 OPEN_IMAGES_SOURCE: Final[str] = "open_images_v5_validation"
 USER_AGENT: Final[str] = (
     "CarSpotterAI/0.1 "
@@ -52,6 +53,26 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--limit-per-class", type=int, default=200)
     parser.add_argument("--max-images", type=int, default=1000)
     parser.add_argument("--minimum-box-area", type=float, default=0.05)
+    parser.add_argument(
+        "--vehicle-class",
+        action="append",
+        choices=OPEN_IMAGES_CLASS_NAMES,
+        dest="vehicle_classes",
+        help=(
+            "Open Images vehicle label to include; repeat to include several. "
+            "Defaults to Car only."
+        ),
+    )
+    parser.add_argument(
+        "--exclude-manifest",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "Manifest whose Open Images source image IDs must be skipped; "
+            "repeat for multiple manifests."
+        ),
+    )
     parser.add_argument("--delay", type=float, default=0.2)
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
@@ -98,6 +119,8 @@ def select_candidates(
     limit_per_class: int,
     max_images: int,
     minimum_box_area: float,
+    vehicle_classes: Sequence[str] = DEFAULT_VEHICLE_CLASSES,
+    excluded_image_ids: frozenset[str] = frozenset(),
 ) -> dict[str, dict[str, Any]]:
     """Select balanced, exterior vehicle candidates from annotation rows.
 
@@ -107,14 +130,27 @@ def select_candidates(
         limit_per_class: Maximum candidates selected per vehicle class.
         max_images: Overall candidate cap.
         minimum_box_area: Minimum normalized box area.
+        vehicle_classes: Open Images vehicle labels allowed in the collection.
+        excluded_image_ids: Source image IDs already represented elsewhere.
 
     Returns:
         Candidate records indexed by image ID.
     """
+    selected_vehicle_classes: set[str] = set(vehicle_classes)
+    if not selected_vehicle_classes:
+        raise OpenImagesCollectionError("At least one vehicle class must be selected.")
+    unsupported_classes: set[str] = selected_vehicle_classes.difference(
+        OPEN_IMAGES_CLASS_NAMES
+    )
+    if unsupported_classes:
+        raise OpenImagesCollectionError(
+            "Unsupported Open Images vehicle classes: "
+            + ", ".join(sorted(unsupported_classes))
+        )
     allowed_labels: dict[str, str] = {
         label_name: class_name
         for label_name, class_name in class_names.items()
-        if class_name in OPEN_IMAGES_CLASS_NAMES
+        if class_name in selected_vehicle_classes
     }
     counts: Counter[str] = Counter()
     candidates: dict[str, dict[str, Any]] = {}
@@ -122,9 +158,14 @@ def select_candidates(
         image_id: str = str(row.get("ImageID", "")).strip()
         label_name: str = str(row.get("LabelName", "")).strip()
         class_name: str | None = allowed_labels.get(label_name)
-        if not image_id or class_name is None:
+        if not image_id or class_name is None or image_id in excluded_image_ids:
             continue
-        if as_bool(row.get("IsInside")) or as_bool(row.get("IsGroupOf")):
+        if (
+            as_bool(row.get("IsInside"))
+            or as_bool(row.get("IsGroupOf"))
+            or as_bool(row.get("IsDepiction"))
+            or as_bool(row.get("IsTruncated"))
+        ):
             continue
         if box_area(row) < minimum_box_area or counts[class_name] >= limit_per_class:
             continue
@@ -146,6 +187,45 @@ def select_candidates(
             break
     LOGGER.info("Selected Open Images candidates by class: %s", dict(counts))
     return candidates
+
+
+def load_excluded_image_ids(manifests: Sequence[Path]) -> frozenset[str]:
+    """Load Open Images source IDs from existing manifests.
+
+    Args:
+        manifests: JSONL manifests that may already contain Open Images records.
+
+    Returns:
+        Immutable set of source image IDs to exclude.
+
+    Raises:
+        OpenImagesCollectionError: If one manifest cannot be read as JSONL.
+    """
+    excluded_ids: set[str] = set()
+    for manifest_path in manifests:
+        if not manifest_path.is_file():
+            raise OpenImagesCollectionError(
+                f"Excluded manifest not found: '{manifest_path}'."
+            )
+        try:
+            for line_number, line in enumerate(
+                manifest_path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                if not line.strip():
+                    continue
+                value: object = json.loads(line)
+                if not isinstance(value, dict):
+                    raise OpenImagesCollectionError(
+                        f"Invalid record in '{manifest_path}' at line {line_number}."
+                    )
+                source_image_id: str = str(value.get("source_image_id", "")).strip()
+                if source_image_id:
+                    excluded_ids.add(source_image_id)
+        except (OSError, json.JSONDecodeError) as error:
+            raise OpenImagesCollectionError(
+                f"Unable to read excluded manifest '{manifest_path}'."
+            ) from error
+    return frozenset(excluded_ids)
 
 
 def license_is_allowed(license_url: str) -> bool:
@@ -267,12 +347,17 @@ def main() -> None:
 
     descriptions = load_class_descriptions(arguments.class_descriptions)
     annotations = load_annotations(arguments.annotations)
+    excluded_image_ids: frozenset[str] = load_excluded_image_ids(
+        arguments.exclude_manifest
+    )
     candidates = select_candidates(
         annotations,
         descriptions,
         arguments.limit_per_class,
         arguments.max_images,
         arguments.minimum_box_area,
+        tuple(arguments.vehicle_classes or DEFAULT_VEHICLE_CLASSES),
+        excluded_image_ids,
     )
     metadata = load_metadata(arguments.metadata, set(candidates))
     downloaded_hashes: set[str] = set()

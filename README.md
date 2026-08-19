@@ -155,6 +155,7 @@ python -m scripts.collect_open_images_negatives \
   --metadata datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
   --class-descriptions datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
   --output datasets/vehicle_taxonomy_v3/open_images_negatives \
+  --vehicle-class Car \
   --limit-per-class 200 \
   --max-images 1000
 ```
@@ -231,9 +232,60 @@ du dataset de classification.
 
 La classe `other_car` est alimentée avec des véhicules proches mais hors cible :
 Pontiac GTO, Firebird, Chevelle, Barracuda, ainsi que des versions modernes de
-nos six modèles. Ces négatifs difficiles réduisent les faux positifs. On pourra
-ensuite compléter cette classe avec le dataset Roboflow audité ; toute image
-ajoutée devra conserver son origine et sa licence dans le manifeste.
+nos six modèles. Ces négatifs difficiles réduisent les faux positifs.
+
+### Diversification `other_car` (V4)
+
+La campagne suivante crée une nouvelle file de candidats sans modifier les
+décisions déjà validées. Elle couvre aussi Multipla, Golf VII et Corolla E100,
+trois familles ayant généré des faux positifs dans l'évaluation terrain :
+
+```bash
+python -m scripts.download_wikimedia \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3_other_car_diversity.json \
+  --output datasets/vehicle_taxonomy_v3/other_car_diversity_wikimedia \
+  --exclude-manifest datasets/field_evaluation_v3/raw/manifest.jsonl \
+  --limit-per-category 25 \
+  --target-per-class 350
+
+python -m scripts.collect_open_images_negatives \
+  --annotations datasets/metadata/open_images_v5/validation-annotations-bbox.csv \
+  --metadata datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
+  --class-descriptions datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
+  --output datasets/vehicle_taxonomy_v3/other_car_diversity_open_images \
+  --vehicle-class Car \
+  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
+  --limit-per-class 300 \
+  --max-images 300
+```
+
+Les résultats doivent être recadrés, fusionnés dans la file de revue, puis
+validés avant un nouvel entraînement. Le jeu terrain `field_evaluation_v3` ne
+doit jamais être fusionné au dataset. La sélection et le statut des sources,
+dont Roboflow Universe, sont documentés dans
+[`docs/dataset_sources.md`](docs/dataset_sources.md).
+
+Pour préserver la progression existante, la nouvelle file est générée dans
+`review_queue_v4` plutôt que d'écraser `review_queue`. Elle réutilise les
+décisions et le registre de suppressions de la file précédente :
+
+```bash
+python -m scripts.merge_review_dataset \
+  --manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
+  --manifest datasets/vehicle_taxonomy_v3/other_car_diversity_wikimedia/cropped/manifest.jsonl \
+  --manifest datasets/vehicle_taxonomy_v3/other_car_diversity_open_images/cropped/manifest.jsonl \
+  --decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json \
+  --output-manifest datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl \
+  --output-decisions datasets/vehicle_taxonomy_v3/review_queue_v4/decisions.json
+
+export CAR_SPOTTER_REVIEW_MANIFEST=datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl
+export CAR_SPOTTER_REVIEW_DECISIONS=datasets/vehicle_taxonomy_v3/review_queue_v4/decisions.json
+export CAR_SPOTTER_REVIEW_DELETED=datasets/vehicle_taxonomy_v3/review_queue/deleted.json
+export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_vehicle_v3.json
+export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/vehicle_taxonomy_v3.json
+streamlit run dataset_review_app.py --server.port 8504
+```
 
 Préparez et validez les splits :
 

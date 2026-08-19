@@ -402,6 +402,17 @@ class ReviewStoreTests(unittest.TestCase):
                 "IsInside": "1",
                 "IsGroupOf": "0",
             },
+            {
+                "ImageID": "truncated",
+                "LabelName": "/m/car",
+                "XMin": "0.1",
+                "XMax": "0.9",
+                "YMin": "0.1",
+                "YMax": "0.9",
+                "IsInside": "0",
+                "IsGroupOf": "0",
+                "IsTruncated": "1",
+            },
         ]
 
         candidates = select_candidates(
@@ -414,6 +425,41 @@ class ReviewStoreTests(unittest.TestCase):
 
         self.assertEqual(set(candidates), {"outside"})
 
+    def test_open_images_candidates_exclude_existing_source_ids(self) -> None:
+        """Existing Open Images sources must not re-enter the review queue."""
+        rows = [
+            {
+                "ImageID": "already-reviewed",
+                "LabelName": "/m/car",
+                "XMin": "0.1",
+                "XMax": "0.9",
+                "YMin": "0.1",
+                "YMax": "0.9",
+                "IsInside": "0",
+                "IsGroupOf": "0",
+            },
+            {
+                "ImageID": "new-candidate",
+                "LabelName": "/m/car",
+                "XMin": "0.1",
+                "XMax": "0.9",
+                "YMin": "0.1",
+                "YMax": "0.9",
+                "IsInside": "0",
+                "IsGroupOf": "0",
+            },
+        ]
+
+        candidates = select_candidates(
+            rows,
+            {"/m/car": "Car"},
+            limit_per_class=5,
+            max_images=5,
+            minimum_box_area=0.05,
+            excluded_image_ids=frozenset({"already-reviewed"}),
+        )
+
+        self.assertEqual(set(candidates), {"new-candidate"})
 
 if __name__ == "__main__":
     unittest.main()

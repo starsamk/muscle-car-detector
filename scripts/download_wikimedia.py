@@ -427,8 +427,6 @@ def process_page(
         "license": license_name,
         "license_url": clean_metadata(metadata.get("LicenseUrl")),
     }
-
-
 def main() -> None:
     """Download configured Wikimedia categories and write a JSONL manifest."""
     arguments: argparse.Namespace = parse_arguments()
