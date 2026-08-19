@@ -266,6 +266,43 @@ doit jamais être fusionné au dataset. La sélection et le statut des sources,
 dont Roboflow Universe, sont documentés dans
 [`docs/dataset_sources.md`](docs/dataset_sources.md).
 
+### Generalisation Mustang et negatifs durs (V5)
+
+Le V4 candidat a revele une regression Fastback et des faux positifs sur des
+voitures reelles. La campagne V5 collecte de nouveaux candidats Fastback et
+Hardtop, sans retelecharger une source deja revue, et ajoute les 45 negatifs
+proches prepares a partir des modes d'echec. Le jeu terrain reste exclu : il ne
+doit jamais servir a entrainer le modele.
+
+```bash
+python -m scripts.download_wikimedia \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3_mustang_generalization.json \
+  --output datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia \
+  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl \
+  --exclude-manifest datasets/field_evaluation_v3/raw/manifest.jsonl \
+  --limit-per-category 50 \
+  --target-per-class 100
+
+python -m scripts.crop_dataset \
+  --manifest datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia/manifest.jsonl \
+  --output datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia/cropped \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3_mustang_generalization.json \
+  --device mps
+
+python -m scripts.merge_review_dataset \
+  --manifest datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl \
+  --manifest datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia/cropped/manifest.jsonl \
+  --manifest datasets/vehicle_taxonomy_v3/other_car_failure_modes_wikimedia_clean/cropped/manifest.jsonl \
+  --decisions datasets/vehicle_taxonomy_v3/review_queue_v4/decisions.json \
+  --output-manifest datasets/vehicle_taxonomy_v3/review_queue_v5/cropped/manifest.jsonl \
+  --output-decisions datasets/vehicle_taxonomy_v3/review_queue_v5/decisions.json
+```
+
+Revoyez ensuite uniquement les nouveaux candidats de `review_queue_v5` avant
+de preparer un dataset V5. Les decisions V4 sont preservees.
+
 Pour préserver la progression existante, la nouvelle file est générée dans
 `review_queue_v4` plutôt que d'écraser `review_queue`. Elle réutilise les
 décisions et le registre de suppressions de la file précédente :

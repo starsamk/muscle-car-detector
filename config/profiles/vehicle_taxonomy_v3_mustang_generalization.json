@@ -1,0 +1,9 @@
+{
+  "schema_version": 3,
+  "name": "vehicle_taxonomy_v3_mustang_generalization",
+  "description": "Collect review-only Fastback and Hardtop candidates excluded from the existing training and field-evaluation sources.",
+  "class_slugs": [
+    "ford_mustang_fastback_classic",
+    "ford_mustang_hardtop_classic"
+  ]
+}
