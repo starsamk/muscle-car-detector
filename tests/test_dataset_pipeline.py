@@ -273,6 +273,18 @@ class ReviewStoreTests(unittest.TestCase):
                 ]
             )
 
+    def test_manifest_merge_allows_idempotent_crop_rerun(self) -> None:
+        """A crop rerun may change only the derived crop path."""
+        merged = merge_manifest_records(
+            [
+                [{"record_id": "same", "sha256": "same", "crop_path": "old.jpg"}],
+                [{"record_id": "same", "sha256": "same", "crop_path": "new.jpg"}],
+            ]
+        )
+
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["crop_path"], "old.jpg")
+
     def test_decision_merge_rejects_conflicts(self) -> None:
         """Conflicting human labels must never be resolved implicitly."""
         first = ReviewDecision.create("record-1", "accepted", "other_car")

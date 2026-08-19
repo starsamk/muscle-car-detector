@@ -12,10 +12,36 @@ from typing import Any, Final
 from review_store import ReviewDecision, ReviewStoreError, load_decisions, save_decisions
 
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
+DERIVED_PATH_FIELDS: Final[frozenset[str]] = frozenset({"crop_path"})
 
 
 class DatasetMergeError(RuntimeError):
     """Raised when derived dataset inputs cannot be merged safely."""
+
+
+def records_are_idempotent_duplicates(
+    first: dict[str, Any], second: dict[str, Any]
+) -> bool:
+    """Check whether two records differ only in derived local paths.
+
+    Args:
+        first: Existing record with precedence.
+        second: Record from a later manifest.
+
+    Returns:
+        ``True`` when both records describe the same source image and metadata.
+    """
+    first_source: dict[str, Any] = {
+        key: value
+        for key, value in first.items()
+        if key not in DERIVED_PATH_FIELDS
+    }
+    second_source: dict[str, Any] = {
+        key: value
+        for key, value in second.items()
+        if key not in DERIVED_PATH_FIELDS
+    }
+    return first_source == second_source
 
 
 def load_manifest(path: Path) -> list[dict[str, Any]]:
@@ -69,6 +95,7 @@ def merge_manifest_records(
     """
     merged: list[dict[str, Any]] = []
     seen_record_ids: set[str] = set()
+    records_by_id: dict[str, dict[str, Any]] = {}
     seen_sha256: set[str] = set()
     for manifest_index, records in enumerate(manifests, start=1):
         for record_index, record in enumerate(records, start=1):
@@ -78,10 +105,19 @@ def merge_manifest_records(
                     f"Manifest {manifest_index}, record {record_index} has no record_id."
                 )
             if record_id in seen_record_ids:
+                if records_are_idempotent_duplicates(
+                    records_by_id[record_id], record
+                ):
+                    LOGGER.info(
+                        "Skipping idempotent duplicate record '%s'",
+                        record_id,
+                    )
+                    continue
                 raise DatasetMergeError(
                     f"Duplicate record_id encountered: '{record_id}'."
                 )
             seen_record_ids.add(record_id)
+            records_by_id[record_id] = record
             sha256: str = str(record.get("sha256", "")).strip()
             if sha256 and sha256 in seen_sha256:
                 LOGGER.info("Skipping duplicate image for record '%s'", record_id)
