@@ -312,9 +312,9 @@ bien plus que le minimum technique de cinq images par classe et par split.
 `--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
 servir à produire le poids publié.
 
-## Entraînement final V4 sur Apple Silicon
+## Fine-tuning candidat V4 sur Apple Silicon
 
-Le modèle V4 final est un **fine-tuning de V3**, et non un nouvel entraînement
+Le modèle V4 est un **fine-tuning candidat de V3**, et non un nouvel entraînement
 depuis `yolov8s-cls.pt`. Cela conserve les caractéristiques déjà apprises pour
 différencier Fastback et Hardtop tout en intégrant les négatifs `other_car`
 diversifiés. Utilisez le poids V3 actif et un faible taux d'apprentissage :
@@ -342,7 +342,10 @@ runs/classify/classic-car-classifier-v4-final/weights/best.pt
 ```
 
 N'écrasez `weights/classifier-best.pt` qu'après les validations interne et
-terrain décrites ci-dessous. Ce fichier n'est pas versionné dans Git.
+terrain décrites ci-dessous. Avant toute promotion, vérifiez au minimum que le
+modèle conserve une bonne reconnaissance Fastback et que son taux de faux
+positifs `other_car` sur le lot terrain n'excède pas 12,5 % au seuil applicatif.
+Sinon, conservez le poids V3 actif. Ce fichier n'est pas versionné dans Git.
 
 ## Évaluation terrain indépendante
 
