@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 DEFAULT_DETECTOR_WEIGHTS: Final[str] = "yolov8n.pt"
 DEFAULT_CLASSIFIER_WEIGHTS: Final[Path] = Path("weights/classifier-best.pt")
-DEFAULT_TAXONOMY_PATH: Final[Path] = Path("config/taxonomy.json")
+DEFAULT_TAXONOMY_PATH: Final[Path] = Path("config/taxonomy_vehicle_v3.json")
 
 
 class PhotoModelError(RuntimeError):

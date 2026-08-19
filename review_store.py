@@ -106,10 +106,67 @@ def save_decisions(path: Path, decisions: dict[str, ReviewDecision]) -> None:
         raise ReviewStoreError(f"Unable to write review store '{path}'.") from error
 
 
+def load_deleted_record_ids(path: Path) -> set[str]:
+    """Load record identifiers excluded from the review dataset.
+
+    Args:
+        path: JSON deletion store path.
+
+    Returns:
+        Deleted record identifiers. A missing file yields an empty set.
+
+    Raises:
+        ReviewStoreError: If the deletion store is malformed or unreadable.
+    """
+    if not path.exists():
+        return set()
+    try:
+        payload: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ReviewStoreError(f"Unable to read deletion store '{path}'.") from error
+    if not isinstance(payload, dict):
+        raise ReviewStoreError(f"Deletion store '{path}' must contain an object.")
+    raw_record_ids: object = payload.get("deleted_record_ids", [])
+    if not isinstance(raw_record_ids, list) or not all(
+        isinstance(record_id, str) for record_id in raw_record_ids
+    ):
+        raise ReviewStoreError(f"Invalid deleted record IDs in '{path}'.")
+    return {record_id for record_id in raw_record_ids if record_id.strip()}
+
+
+def save_deleted_record_ids(path: Path, record_ids: set[str]) -> None:
+    """Persist deleted record identifiers atomically.
+
+    Args:
+        path: JSON deletion store path.
+        record_ids: Record identifiers to exclude from future review and training.
+
+    Raises:
+        ReviewStoreError: If the store cannot be written.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "schema_version": 1,
+        "deleted_record_ids": sorted(record_ids),
+    }
+    temporary_path: Path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        temporary_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        temporary_path.replace(path)
+    except OSError as error:
+        temporary_path.unlink(missing_ok=True)
+        raise ReviewStoreError(f"Unable to write deletion store '{path}'.") from error
+
+
 __all__: list[str] = [
     "ReviewDecision",
     "ReviewStatus",
     "ReviewStoreError",
+    "load_deleted_record_ids",
     "load_decisions",
+    "save_deleted_record_ids",
     "save_decisions",
 ]

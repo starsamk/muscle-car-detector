@@ -12,7 +12,13 @@ from dataset_config import (
     load_profile,
     load_taxonomy,
 )
-from review_store import ReviewDecision, load_decisions, save_decisions
+from review_store import (
+    ReviewDecision,
+    load_deleted_record_ids,
+    load_decisions,
+    save_deleted_record_ids,
+    save_decisions,
+)
 from scripts.crop_dataset import Detection, padded_box, select_detection
 from scripts.prepare_classification_dataset import (
     ImageRecord,
@@ -211,6 +217,16 @@ class ReviewStoreTests(unittest.TestCase):
 
             self.assertEqual(load_decisions(path), {"record-1": decision})
 
+    def test_deleted_records_round_trip(self) -> None:
+        """Deleted records persist independently from review decisions."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "deleted.json"
+            save_deleted_record_ids(path, {"record-2", "record-1"})
+
+            self.assertEqual(
+                load_deleted_record_ids(path), {"record-1", "record-2"}
+            )
+
     def test_split_assignment_is_deterministic(self) -> None:
         """The same source group must always remain in the same split."""
         first = split_for_group("author:example", 0.70, 0.15)
@@ -272,6 +288,18 @@ class ReviewStoreTests(unittest.TestCase):
                     [{"record_id": "same", "sha256": "second"}],
                 ]
             )
+
+    def test_manifest_merge_allows_idempotent_crop_rerun(self) -> None:
+        """A crop rerun may change only the derived crop path."""
+        merged = merge_manifest_records(
+            [
+                [{"record_id": "same", "sha256": "same", "crop_path": "old.jpg"}],
+                [{"record_id": "same", "sha256": "same", "crop_path": "new.jpg"}],
+            ]
+        )
+
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["crop_path"], "old.jpg")
 
     def test_decision_merge_rejects_conflicts(self) -> None:
         """Conflicting human labels must never be resolved implicitly."""

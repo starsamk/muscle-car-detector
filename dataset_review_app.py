@@ -21,7 +21,9 @@ from dataset_config import (
 from review_store import (
     ReviewDecision,
     ReviewStoreError,
+    load_deleted_record_ids,
     load_decisions,
+    save_deleted_record_ids,
     save_decisions,
 )
 
@@ -31,6 +33,12 @@ DEFAULT_MANIFEST: Final[Path] = Path(
 )
 DEFAULT_DECISIONS: Final[Path] = Path(
     os.getenv("CAR_SPOTTER_REVIEW_DECISIONS", "datasets/review/decisions.json")
+)
+DEFAULT_DELETED: Final[Path] = Path(
+    os.getenv(
+        "CAR_SPOTTER_REVIEW_DELETED",
+        str(DEFAULT_DECISIONS.with_name("deleted.json")),
+    )
 )
 REVIEW_TAXONOMY_PATH: Final[Path] = Path(
     os.getenv("CAR_SPOTTER_REVIEW_TAXONOMY_PATH", str(DEFAULT_TAXONOMY_PATH))
@@ -97,6 +105,28 @@ def persist_decision(
     save_decisions(decision_path, decisions)
 
 
+def persist_deleted_record(
+    deletion_path: Path,
+    deleted_record_ids: set[str],
+    record: dict[str, Any],
+) -> None:
+    """Exclude one record from review without changing review decisions.
+
+    Args:
+        deletion_path: JSON deletion store path.
+        deleted_record_ids: Current deleted record identifiers.
+        record: Manifest record to exclude.
+
+    Raises:
+        ReviewAppError: If the record has no stable identifier.
+    """
+    record_id: str = str(record.get("record_id", "")).strip()
+    if not record_id:
+        raise ReviewAppError("Cette image ne possède pas de record_id.")
+    deleted_record_ids.add(record_id)
+    save_deleted_record_ids(deletion_path, deleted_record_ids)
+
+
 def render_record(
     record: dict[str, Any], taxonomy: dict[str, TaxonomyClass]
 ) -> None:
@@ -154,6 +184,7 @@ def main() -> None:
         profile = load_profile(REVIEW_PROFILE_PATH, taxonomy)
         records: list[dict[str, Any]] = load_manifest(str(DEFAULT_MANIFEST))
         decisions: dict[str, ReviewDecision] = load_decisions(DEFAULT_DECISIONS)
+        deleted_record_ids: set[str] = load_deleted_record_ids(DEFAULT_DELETED)
     except (DatasetConfigError, ReviewAppError, ReviewStoreError) as error:
         LOGGER.exception("Unable to initialize the review interface")
         st.error(str(error))
@@ -171,7 +202,8 @@ def main() -> None:
     filtered_records: list[dict[str, Any]] = [
         record
         for record in profile_records
-        if (class_filter == "Toutes" or record.get("class_slug") == class_filter)
+        if str(record.get("record_id", "")) not in deleted_record_ids
+        and (class_filter == "Toutes" or record.get("class_slug") == class_filter)
     ]
     pending_records: list[dict[str, Any]] = [
         record
@@ -182,6 +214,10 @@ def main() -> None:
         str(record.get("record_id", "")) in decisions for record in profile_records
     )
     st.sidebar.metric("Progression", f"{reviewed_count}/{len(profile_records)}")
+    if deleted_record_ids:
+        st.sidebar.caption(
+            f"{len(deleted_record_ids)} image(s) supprimée(s) de la revue."
+        )
     if profile_records:
         st.sidebar.progress(reviewed_count / len(profile_records))
 
@@ -290,6 +326,26 @@ def main() -> None:
                 following_records[0].get("record_id", "")
             )
         st.session_state.review_explicit_navigation = show_reviewed
+        st.rerun()
+    if st.button(
+        "Supprimer cette image de la revue",
+        use_container_width=True,
+        help="Masque cette image de la revue et de la préparation du dataset. "
+        "Les décisions existantes ne sont pas modifiées.",
+    ):
+        persist_deleted_record(DEFAULT_DELETED, deleted_record_ids, record)
+        following_records = [
+            candidate
+            for candidate in filtered_records[current_index + 1 :]
+            if str(candidate.get("record_id", "")) not in deleted_record_ids
+            and (show_reviewed or str(candidate.get("record_id", "")) not in decisions)
+        ]
+        st.session_state.review_record_id = (
+            str(following_records[0].get("record_id", ""))
+            if following_records
+            else ""
+        )
+        st.session_state.review_explicit_navigation = False
         st.rerun()
 
 

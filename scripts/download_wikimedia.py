@@ -12,6 +12,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 from pathlib import Path
 from typing import Any, Final, Iterator
 
@@ -73,6 +74,11 @@ def parse_arguments() -> argparse.Namespace:
         type=int,
         default=80,
         help="Maximum number of images downloaded from each category.",
+    )
+    parser.add_argument(
+        "--target-per-class",
+        type=int,
+        help="Stop collecting a class after this many manifest records exist.",
     )
     parser.add_argument(
         "--thumbnail-width",
@@ -370,6 +376,8 @@ def main() -> None:
     arguments: argparse.Namespace = parse_arguments()
     if arguments.limit_per_category <= 0:
         raise WikimediaError("--limit-per-category must be greater than zero.")
+    if arguments.target_per_class is not None and arguments.target_per_class <= 0:
+        raise WikimediaError("--target-per-class must be greater than zero.")
     taxonomy: dict[str, TaxonomyClass] = load_taxonomy(arguments.taxonomy)
     profile: DatasetProfile | None = (
         load_profile(arguments.profile, taxonomy)
@@ -383,17 +391,29 @@ def main() -> None:
     output_directory.mkdir(parents=True, exist_ok=True)
     manifest_path: Path = output_directory / "manifest.jsonl"
     existing_records: set[tuple[str, str]] = set()
+    class_counts: Counter[str] = Counter()
     if manifest_path.exists():
         for line in manifest_path.read_text(encoding="utf-8").splitlines():
             record: object = json.loads(line)
             if isinstance(record, dict):
-                existing_records.add(
-                    (str(record.get("class_slug")), str(record.get("source_title")))
-                )
+                class_slug: str = str(record.get("class_slug", ""))
+                source_title: str = str(record.get("source_title", ""))
+                existing_records.add((class_slug, source_title))
+                class_counts[class_slug] += 1
 
     with manifest_path.open("a", encoding="utf-8") as manifest_file:
         for class_definition in classes:
             class_slug: str = class_definition.slug
+            if (
+                arguments.target_per_class is not None
+                and class_counts[class_slug] >= arguments.target_per_class
+            ):
+                LOGGER.info(
+                    "Target already reached for %s: %d records",
+                    class_slug,
+                    class_counts[class_slug],
+                )
+                continue
             for category in class_definition.wikimedia_categories:
                 LOGGER.info("Reading Category:%s for %s", category, class_slug)
                 for page in iter_category_files(
@@ -401,6 +421,11 @@ def main() -> None:
                     arguments.limit_per_category,
                     arguments.thumbnail_width,
                 ):
+                    if (
+                        arguments.target_per_class is not None
+                        and class_counts[class_slug] >= arguments.target_per_class
+                    ):
+                        break
                     source_title: str = str(page.get("title", ""))
                     if (class_slug, source_title) in existing_records:
                         continue
@@ -416,6 +441,7 @@ def main() -> None:
                     manifest_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                     manifest_file.flush()
                     existing_records.add((class_slug, source_title))
+                    class_counts[class_slug] += 1
                     time.sleep(max(0.0, arguments.delay))
 
 

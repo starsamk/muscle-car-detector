@@ -128,11 +128,14 @@ python -m scripts.download_wikimedia \
   --taxonomy config/taxonomy_vehicle_v3.json \
   --profile config/profiles/vehicle_taxonomy_v3_missing_positive_collection.json \
   --output datasets/vehicle_taxonomy_v3/raw \
-  --limit-per-category 80
+  --limit-per-category 120 \
+  --target-per-class 150
 ```
 
 Les négatifs difficiles Wikimedia sont collectés séparément dans la même
 taxonomie avec `config/profiles/vehicle_taxonomy_v3_hard_negative_collection.json`.
+`--target-per-class` permet de reprendre une collecte sans dépasser un objectif
+de volume déjà présent dans le manifeste.
 Ils restent des candidats jusqu'à leur validation humaine.
 
 Pour ajouter des négatifs Open Images, téléchargez seulement les métadonnées de
@@ -179,6 +182,7 @@ Pour ouvrir cette file dans Streamlit :
 ```bash
 export CAR_SPOTTER_REVIEW_MANIFEST=datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
 export CAR_SPOTTER_REVIEW_DECISIONS=datasets/vehicle_taxonomy_v3/review_queue/decisions.json
+export CAR_SPOTTER_REVIEW_DELETED=datasets/vehicle_taxonomy_v3/review_queue/deleted.json
 export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_vehicle_v3.json
 export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/vehicle_taxonomy_v3.json
 streamlit run dataset_review_app.py --server.port 8503
@@ -220,7 +224,10 @@ streamlit run dataset_review_app.py
 Chaque recadrage doit être accepté, corrigé vers une autre classe du profil, ou
 rejeté. Les décisions sont sauvegardées au fil de l'eau dans
 `datasets/review/decisions.json`. Le dataset final exige par défaut une décision
-humaine positive.
+humaine positive. Le bouton « Supprimer cette image de la revue » l'exclut via
+un store séparé (`deleted.json`) sans modifier les décisions existantes ni le
+manifeste source. Cette exclusion est également appliquée lors de la préparation
+du dataset de classification.
 
 La classe `other_car` est alimentée avec des véhicules proches mais hors cible :
 Pontiac GTO, Firebird, Chevelle, Barracuda, ainsi que des versions modernes de
@@ -232,8 +239,18 @@ Préparez et validez les splits :
 
 ```bash
 python -m scripts.prepare_classification_dataset \
-  --manifest datasets/cropped/manifest.jsonl
-python -m scripts.validate_classification_dataset --minimum-per-split 5
+  --manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
+  --output datasets/classification_vehicle_v3 \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json \
+  --deleted datasets/vehicle_taxonomy_v3/review_queue/deleted.json \
+  --force
+python -m scripts.validate_classification_dataset \
+  --data datasets/classification_vehicle_v3 \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --minimum-per-split 5
 ```
 
 Le découpage est déterministe, groupé par auteur/source et stratifié par classe
@@ -249,17 +266,19 @@ Sur le Mac M1 Pro, entraînez d'abord `yolov8s-cls.pt` avec MPS :
 
 ```bash
 python train_classifier.py \
+  --data datasets/classification_vehicle_v3 \
   --model yolov8s-cls.pt \
   --device mps \
   --epochs 100 \
   --image-size 320 \
-  --batch-size 8
+  --batch-size 8 \
+  --name classic-car-classifier-v3
 ```
 
 Le meilleur checkpoint est créé dans :
 
 ```text
-runs/classify/classic-car-classifier-v1/weights/best.pt
+runs/classify/classic-car-classifier-v3/weights/best.pt
 ```
 
 Copiez-le ensuite vers `weights/classifier-best.pt`. Ce fichier n'est pas
