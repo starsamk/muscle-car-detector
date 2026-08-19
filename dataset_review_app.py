@@ -127,9 +127,7 @@ def persist_deleted_record(
     save_deleted_record_ids(deletion_path, deleted_record_ids)
 
 
-def render_record(
-    record: dict[str, Any], taxonomy: dict[str, TaxonomyClass]
-) -> None:
+def render_record(record: dict[str, Any], taxonomy: dict[str, TaxonomyClass]) -> None:
     """Render source, crop, and attribution metadata for one record."""
     original_path: Path | None = image_path(record, "local_path")
     crop_path: Path | None = image_path(record, "crop_path")
@@ -175,9 +173,7 @@ def main() -> None:
     """Run the interactive dataset review workflow."""
     st.set_page_config(page_title="Car Spotter — Dataset Review", layout="wide")
     st.title("Validation du dataset Car Spotter")
-    st.caption(
-        "Acceptez, corrigez ou rejetez chaque recadrage avant l'entraînement."
-    )
+    st.caption("Acceptez, corrigez ou rejetez chaque recadrage avant l'entraînement.")
 
     try:
         taxonomy = load_taxonomy(REVIEW_TAXONOMY_PATH)
@@ -236,9 +232,7 @@ def main() -> None:
     if not filtered_records:
         st.info("Aucune image ne correspond à ce filtre.")
         return
-    current_record_id: str = str(
-        st.session_state.get("review_record_id", "")
-    )
+    current_record_id: str = str(st.session_state.get("review_record_id", ""))
     records_by_id: dict[str, dict[str, Any]] = {
         str(record.get("record_id", "")): record for record in filtered_records
     }
@@ -289,9 +283,7 @@ def main() -> None:
         )
         st.session_state.review_explicit_navigation = True
         st.rerun()
-    if accept_column.button(
-        "Accepter", type="primary", use_container_width=True
-    ):
+    if accept_column.button("Accepter", type="primary", use_container_width=True):
         persist_decision(
             DEFAULT_DECISIONS, decisions, record, "accepted", selected_slug
         )
@@ -301,9 +293,7 @@ def main() -> None:
             if str(candidate.get("record_id", "")) not in decisions
         ]
         st.session_state.review_record_id = (
-            str(remaining_records[0].get("record_id", ""))
-            if remaining_records
-            else ""
+            str(remaining_records[0].get("record_id", "")) if remaining_records else ""
         )
         st.session_state.review_explicit_navigation = False
         st.rerun()
@@ -317,9 +307,7 @@ def main() -> None:
             if str(candidate.get("record_id", "")) not in decisions
         ]
         st.session_state.review_record_id = (
-            str(remaining_records[0].get("record_id", ""))
-            if remaining_records
-            else ""
+            str(remaining_records[0].get("record_id", "")) if remaining_records else ""
         )
         st.session_state.review_explicit_navigation = False
         st.rerun()
@@ -353,9 +341,7 @@ def main() -> None:
             and (show_reviewed or str(candidate.get("record_id", "")) not in decisions)
         ]
         st.session_state.review_record_id = (
-            str(following_records[0].get("record_id", ""))
-            if following_records
-            else ""
+            str(following_records[0].get("record_id", "")) if following_records else ""
         )
         st.session_state.review_explicit_navigation = False
         st.rerun()

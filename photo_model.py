@@ -159,9 +159,7 @@ class PhotoSpotter:
             display_name: str = str(class_definition.get("display_name", slug))
             year_start: int = int(class_definition.get("year_start", 0))
             year_end: int = int(class_definition.get("year_end", 0))
-            show_year_range: bool = bool(
-                class_definition.get("show_year_range", True)
-            )
+            show_year_range: bool = bool(class_definition.get("show_year_range", True))
             if show_year_range and year_start > 0 and year_end > 0:
                 period: str = (
                     str(year_start)
@@ -262,10 +260,7 @@ class PhotoSpotter:
                 class_slug, classification_confidence = self._classify_crop(
                     classifier, crop
                 )
-                if (
-                    classification_confidence
-                    < self._config.classification_confidence
-                ):
+                if classification_confidence < self._config.classification_confidence:
                     class_slug = "other_car"
                 display_label: str = labels.get(class_slug, class_slug)
                 predictions.append(
@@ -292,9 +287,7 @@ class PhotoSpotter:
         return annotated_image
 
     @staticmethod
-    def _render(
-        image: Image.Image, predictions: list[CarPrediction]
-    ) -> Image.Image:
+    def _render(image: Image.Image, predictions: list[CarPrediction]) -> Image.Image:
         """Draw boxes and model/period labels on an image."""
         annotated_image: Image.Image = image.copy()
         draw: ImageDraw.ImageDraw = ImageDraw.Draw(annotated_image)
@@ -302,8 +295,7 @@ class PhotoSpotter:
         for prediction in predictions:
             left, top, right, bottom = prediction.bounding_box
             label: str = (
-                f"{prediction.display_label} "
-                f"{prediction.classification_confidence:.0%}"
+                f"{prediction.display_label} {prediction.classification_confidence:.0%}"
             )
             draw.rectangle((left, top, right, bottom), outline="#00E5FF", width=4)
             label_box: tuple[float, float, float, float] = draw.textbbox(

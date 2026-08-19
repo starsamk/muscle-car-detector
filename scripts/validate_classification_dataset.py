@@ -36,12 +36,8 @@ def parse_arguments() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="Validate prepared classification folders and images."
     )
-    parser.add_argument(
-        "--data", type=Path, default=Path("datasets/classification")
-    )
-    parser.add_argument(
-        "--taxonomy", type=Path, default=DEFAULT_TAXONOMY_PATH
-    )
+    parser.add_argument("--data", type=Path, default=Path("datasets/classification"))
+    parser.add_argument("--taxonomy", type=Path, default=DEFAULT_TAXONOMY_PATH)
     parser.add_argument("--profile", type=Path, default=DEFAULT_MVP_PROFILE_PATH)
     parser.add_argument("--minimum-per-split", type=int, default=5)
     return parser.parse_args()

@@ -217,9 +217,7 @@ def process_record(
             device=device,
             verbose=False,
         )
-        detections: list[Detection] = (
-            extract_detections(results[0]) if results else []
-        )
+        detections: list[Detection] = extract_detections(results[0]) if results else []
         selected, status = select_detection(detections, ambiguity_ratio)
         if selected is None:
             return {

@@ -9,7 +9,12 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from review_store import ReviewDecision, ReviewStoreError, load_decisions, save_decisions
+from review_store import (
+    ReviewDecision,
+    ReviewStoreError,
+    load_decisions,
+    save_decisions,
+)
 
 LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 DERIVED_PATH_FIELDS: Final[frozenset[str]] = frozenset({"crop_path"})
@@ -32,14 +37,10 @@ def records_are_idempotent_duplicates(
         ``True`` when both records describe the same source image and metadata.
     """
     first_source: dict[str, Any] = {
-        key: value
-        for key, value in first.items()
-        if key not in DERIVED_PATH_FIELDS
+        key: value for key, value in first.items() if key not in DERIVED_PATH_FIELDS
     }
     second_source: dict[str, Any] = {
-        key: value
-        for key, value in second.items()
-        if key not in DERIVED_PATH_FIELDS
+        key: value for key, value in second.items() if key not in DERIVED_PATH_FIELDS
     }
     return first_source == second_source
 
@@ -105,9 +106,7 @@ def merge_manifest_records(
                     f"Manifest {manifest_index}, record {record_index} has no record_id."
                 )
             if record_id in seen_record_ids:
-                if records_are_idempotent_duplicates(
-                    records_by_id[record_id], record
-                ):
+                if records_are_idempotent_duplicates(records_by_id[record_id], record):
                     LOGGER.info(
                         "Skipping idempotent duplicate record '%s'",
                         record_id,

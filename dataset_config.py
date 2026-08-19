@@ -8,18 +8,14 @@ from pathlib import Path
 from typing import Any, Final
 
 DEFAULT_TAXONOMY_PATH: Final[Path] = Path("config/taxonomy.json")
-DEFAULT_MVP_PROFILE_PATH: Final[Path] = Path(
-    "config/profiles/mustang_mvp.json"
-)
+DEFAULT_MVP_PROFILE_PATH: Final[Path] = Path("config/profiles/mustang_mvp.json")
 DEFAULT_MUSTANG_BODY_STYLE_TAXONOMY_PATH: Final[Path] = Path(
     "config/taxonomy_mustang_body_style_v2.json"
 )
 DEFAULT_MUSTANG_BODY_STYLE_PROFILE_PATH: Final[Path] = Path(
     "config/profiles/mustang_body_style_v2.json"
 )
-DEFAULT_VEHICLE_TAXONOMY_V3_PATH: Final[Path] = Path(
-    "config/taxonomy_vehicle_v3.json"
-)
+DEFAULT_VEHICLE_TAXONOMY_V3_PATH: Final[Path] = Path("config/taxonomy_vehicle_v3.json")
 DEFAULT_VEHICLE_TAXONOMY_V3_PROFILE_PATH: Final[Path] = Path(
     "config/profiles/vehicle_taxonomy_v3.json"
 )
@@ -47,11 +43,7 @@ class TaxonomyClass:
     @property
     def label(self) -> str:
         """Return an unambiguous user-facing model and production period."""
-        if (
-            not self.show_year_range
-            or self.year_start <= 0
-            or self.year_end <= 0
-        ):
+        if not self.show_year_range or self.year_start <= 0 or self.year_end <= 0:
             return self.display_name
         period: str = (
             str(self.year_start)
@@ -176,9 +168,7 @@ def load_taxonomy(path: Path = DEFAULT_TAXONOMY_PATH) -> dict[str, TaxonomyClass
             body_style=str(raw_class.get("body_style", "")).strip(),
             year_start=year_start,
             year_end=year_end,
-            show_year_range=optional_boolean(
-                raw_class, "show_year_range", True, path
-            ),
+            show_year_range=optional_boolean(raw_class, "show_year_range", True, path),
             wikimedia_categories=tuple(
                 str(category).strip() for category in raw_categories
             ),

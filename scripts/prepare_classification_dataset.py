@@ -336,16 +336,11 @@ def assign_group_splits(
 
     target_counts: dict[str, Counter[str]] = {
         split: Counter(
-            {
-                class_slug: total * ratio
-                for class_slug, total in class_totals.items()
-            }
+            {class_slug: total * ratio for class_slug, total in class_totals.items()}
         )
         for split, ratio in split_ratios.items()
     }
-    assigned_counts: dict[str, Counter[str]] = {
-        split: Counter() for split in SPLITS
-    }
+    assigned_counts: dict[str, Counter[str]] = {split: Counter() for split in SPLITS}
     group_assignments: dict[str, str] = {}
 
     ordered_groups: list[tuple[str, Counter[str]]] = sorted(
@@ -376,10 +371,13 @@ def assign_group_splits(
         group_assignments[group_key] = best_split
         assigned_counts[best_split].update(group_count)
 
-    LOGGER.info("Stratified split counts: %s", {
-        split: dict(sorted(counts.items()))
-        for split, counts in assigned_counts.items()
-    })
+    LOGGER.info(
+        "Stratified split counts: %s",
+        {
+            split: dict(sorted(counts.items()))
+            for split, counts in assigned_counts.items()
+        },
+    )
     return group_assignments
 
 
@@ -424,9 +422,7 @@ def write_prepared_dataset(
         for class_slug in sorted(expected_classes):
             (output_directory / split / class_slug).mkdir(parents=True)
     rows: list[dict[str, str]] = []
-    split_counts: dict[str, dict[str, int]] = defaultdict(
-        lambda: defaultdict(int)
-    )
+    split_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     group_assignments: dict[str, str] = assign_group_splits(
         records, train_ratio, val_ratio
     )
@@ -461,9 +457,7 @@ def write_prepared_dataset(
     if not fieldnames:
         raise DatasetPreparationError("No valid images were found in the manifest.")
     with manifest_path.open("w", encoding="utf-8", newline="") as output_file:
-        writer: csv.DictWriter[str] = csv.DictWriter(
-            output_file, fieldnames=fieldnames
-        )
+        writer: csv.DictWriter[str] = csv.DictWriter(output_file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
@@ -483,9 +477,7 @@ def main() -> None:
     train_ratio: float = arguments.train_ratio
     val_ratio: float = arguments.val_ratio
     if train_ratio <= 0.0 or val_ratio <= 0.0:
-        raise DatasetPreparationError(
-            "Train and validation ratios must be positive."
-        )
+        raise DatasetPreparationError("Train and validation ratios must be positive.")
     if train_ratio + val_ratio >= 1.0:
         raise DatasetPreparationError(
             "Train and validation ratios must total less than 1."

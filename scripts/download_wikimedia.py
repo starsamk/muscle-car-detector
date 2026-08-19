@@ -194,13 +194,9 @@ def api_request(parameters: dict[str, str | int]) -> dict[str, Any]:
             break
         except urllib.error.HTTPError as error:
             if error.code != 429 or attempt == 4:
-                raise WikimediaError(
-                    f"Wikimedia API request failed: {url}"
-                ) from error
+                raise WikimediaError(f"Wikimedia API request failed: {url}") from error
             retry_after: str = error.headers.get("Retry-After", "")
-            server_delay: float = (
-                float(retry_after) if retry_after.isdigit() else 0.0
-            )
+            server_delay: float = float(retry_after) if retry_after.isdigit() else 0.0
             wait_seconds: float = max(server_delay, float(5 * 2**attempt))
             LOGGER.warning(
                 "Wikimedia rate limit reached; retrying in %.1f seconds",
@@ -324,9 +320,7 @@ def download_file(url: str, destination: Path) -> str:
             if error.code != 429 or attempt == 5:
                 raise WikimediaError(f"Unable to download '{url}'.") from error
             retry_after: str = error.headers.get("Retry-After", "")
-            server_delay: float = (
-                float(retry_after) if retry_after.isdigit() else 0.0
-            )
+            server_delay: float = float(retry_after) if retry_after.isdigit() else 0.0
             wait_seconds: float = max(server_delay, float(10 * 2**attempt))
             LOGGER.warning(
                 "Image download rate limit reached; retrying in %.1f seconds",
@@ -398,9 +392,7 @@ def process_page(
     class_slug: str = class_definition.slug
     class_directory: Path = output_directory / "images" / class_slug
     class_directory.mkdir(parents=True, exist_ok=True)
-    destination: Path = class_directory / (
-        filename_key + extension_for_mime(mime_type)
-    )
+    destination: Path = class_directory / (filename_key + extension_for_mime(mime_type))
     if destination.exists():
         LOGGER.info("Already downloaded: %s", destination)
         file_digest: str = hashlib.sha256(destination.read_bytes()).hexdigest()
@@ -427,6 +419,8 @@ def process_page(
         "license": license_name,
         "license_url": clean_metadata(metadata.get("LicenseUrl")),
     }
+
+
 def main() -> None:
     """Download configured Wikimedia categories and write a JSONL manifest."""
     arguments: argparse.Namespace = parse_arguments()
@@ -492,9 +486,9 @@ def main() -> None:
                         break
                     source_title: str = str(page.get("title", ""))
                     if (
-                        (class_slug, source_title) in existing_records
-                        or source_title in excluded_source_titles
-                    ):
+                        class_slug,
+                        source_title,
+                    ) in existing_records or source_title in excluded_source_titles:
                         continue
                     try:
                         record = process_page(

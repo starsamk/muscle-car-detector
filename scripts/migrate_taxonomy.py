@@ -132,9 +132,7 @@ def main() -> None:
     mapping = load_class_mapping(arguments.mapping, target_slugs)
     source_records = load_manifest(arguments.manifest)
     source_decisions = load_decisions(arguments.decisions)
-    migrated_records = migrate_manifest_records(
-        source_records, mapping, target_slugs
-    )
+    migrated_records = migrate_manifest_records(source_records, mapping, target_slugs)
     migrated_decisions = migrate_review_decisions(
         source_decisions, mapping, target_slugs
     )
