@@ -236,9 +236,10 @@ python -m scripts.prepare_classification_dataset \
 python -m scripts.validate_classification_dataset --minimum-per-split 5
 ```
 
-Le découpage est déterministe et groupé par auteur/source afin de réduire les
-fuites entre entraînement et évaluation. Pour un véritable modèle, visez bien
-plus que le minimum technique de cinq images par classe et par split.
+Le découpage est déterministe, groupé par auteur/source et stratifié par classe
+afin de réduire les fuites entre entraînement et évaluation tout en gardant les
+classes représentées dans les trois splits. Pour un véritable modèle, visez
+bien plus que le minimum technique de cinq images par classe et par split.
 `--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
 servir à produire le poids publié.
 
