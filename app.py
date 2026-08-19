@@ -63,10 +63,10 @@ def render_results(original: Image.Image, annotated: Image.Image) -> None:
     left_column, right_column = st.columns(2)
     with left_column:
         st.subheader("Image originale")
-        st.image(original, use_container_width=True)
+        st.image(original, use_column_width=True)
     with right_column:
         st.subheader("Détection")
-        st.image(annotated, use_container_width=True)
+        st.image(annotated, use_column_width=True)
 
 
 def render_prediction_summary(predictions: list[CarPrediction]) -> None:
@@ -121,7 +121,7 @@ def main() -> None:
         st.error(f"Impossible de lire l’image importée : {error}")
         return
 
-    st.image(original_image, caption="Aperçu", use_container_width=True)
+    st.image(original_image, caption="Aperçu", use_column_width=True)
 
     should_predict: bool = st.button(
         "Détecter les véhicules", type="primary", use_container_width=True
