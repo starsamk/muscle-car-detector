@@ -1,0 +1,30 @@
+{
+  "schema_version": 3,
+  "scope": {
+    "start_year": 0,
+    "end_year": 0,
+    "fallback_class": "other_car"
+  },
+  "classes": [
+    {
+      "slug": "other_car",
+      "display_name": "Other car",
+      "make": "Other",
+      "model": "Other",
+      "generation": "",
+      "body_style": "",
+      "year_start": 0,
+      "year_end": 0,
+      "show_year_range": false,
+      "wikimedia_categories": [
+        "Fiat Multipla I",
+        "Volkswagen Golf VII",
+        "Toyota Corolla (E100) sedan",
+        "2015 Ford Mustang",
+        "2015 Dodge Challenger",
+        "2015 Chevrolet Camaro",
+        "2015 Chevrolet Corvette"
+      ]
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Final, Iterator
 
@@ -92,6 +93,16 @@ def parse_arguments() -> argparse.Namespace:
         default=1.5,
         help="Delay in seconds between downloaded files.",
     )
+    parser.add_argument(
+        "--exclude-manifest",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "JSONL manifest whose source titles, pages, and SHA-256 hashes must "
+            "not be downloaded; repeat for multiple manifests."
+        ),
+    )
     selection_group = parser.add_mutually_exclusive_group()
     selection_group.add_argument(
         "--profile",
@@ -105,6 +116,53 @@ def parse_arguments() -> argparse.Namespace:
         help="Download only selected class slugs; repeat for multiple classes.",
     )
     return parser.parse_args()
+
+
+def load_manifest_exclusions(
+    paths: Iterable[Path],
+) -> tuple[set[str], set[str], set[str]]:
+    """Load source identities that must not enter a new collection.
+
+    Args:
+        paths: Existing JSONL manifests used as exclusion references.
+
+    Returns:
+        Source titles, source pages, and SHA-256 hashes to exclude.
+
+    Raises:
+        WikimediaError: If an exclusion manifest is missing or malformed.
+    """
+    source_titles: set[str] = set()
+    source_pages: set[str] = set()
+    sha256_hashes: set[str] = set()
+    for path in paths:
+        if not path.is_file():
+            raise WikimediaError(f"Exclusion manifest not found: '{path}'.")
+        try:
+            lines: list[str] = path.read_text(encoding="utf-8").splitlines()
+            for line_number, line in enumerate(lines, start=1):
+                if not line.strip():
+                    continue
+                record: object = json.loads(line)
+                if not isinstance(record, dict):
+                    raise WikimediaError(
+                        f"Exclusion manifest line {line_number} in '{path}' "
+                        "is not an object."
+                    )
+                source_title: str = str(record.get("source_title", "")).strip()
+                source_page: str = str(record.get("source_page", "")).strip()
+                sha256_hash: str = str(record.get("sha256", "")).strip()
+                if source_title:
+                    source_titles.add(source_title)
+                if source_page:
+                    source_pages.add(source_page)
+                if sha256_hash:
+                    sha256_hashes.add(sha256_hash)
+        except (OSError, json.JSONDecodeError) as error:
+            raise WikimediaError(
+                f"Unable to read exclusion manifest '{path}'."
+            ) from error
+    return source_titles, source_pages, sha256_hashes
 
 
 def api_request(parameters: dict[str, str | int]) -> dict[str, Any]:
@@ -390,6 +448,14 @@ def main() -> None:
     output_directory: Path = arguments.output
     output_directory.mkdir(parents=True, exist_ok=True)
     manifest_path: Path = output_directory / "manifest.jsonl"
+    exclusion_manifests: list[Path] = list(arguments.exclude_manifest)
+    if manifest_path.exists():
+        exclusion_manifests.append(manifest_path)
+    (
+        excluded_source_titles,
+        excluded_source_pages,
+        excluded_sha256_hashes,
+    ) = load_manifest_exclusions(exclusion_manifests)
     existing_records: set[tuple[str, str]] = set()
     class_counts: Counter[str] = Counter()
     if manifest_path.exists():
@@ -427,7 +493,10 @@ def main() -> None:
                     ):
                         break
                     source_title: str = str(page.get("title", ""))
-                    if (class_slug, source_title) in existing_records:
+                    if (
+                        (class_slug, source_title) in existing_records
+                        or source_title in excluded_source_titles
+                    ):
                         continue
                     try:
                         record = process_page(
@@ -438,9 +507,24 @@ def main() -> None:
                         continue
                     if record is None:
                         continue
+                    source_page: str = str(record.get("source_page", "")).strip()
+                    sha256_hash: str = str(record.get("sha256", "")).strip()
+                    if (
+                        source_page in excluded_source_pages
+                        or sha256_hash in excluded_sha256_hashes
+                    ):
+                        local_path: Path = Path(str(record.get("local_path", "")))
+                        local_path.unlink(missing_ok=True)
+                        LOGGER.info("Skipping excluded source: %s", source_title)
+                        continue
                     manifest_file.write(json.dumps(record, ensure_ascii=False) + "\n")
                     manifest_file.flush()
                     existing_records.add((class_slug, source_title))
+                    excluded_source_titles.add(source_title)
+                    if source_page:
+                        excluded_source_pages.add(source_page)
+                    if sha256_hash:
+                        excluded_sha256_hashes.add(sha256_hash)
                     class_counts[class_slug] += 1
                     time.sleep(max(0.0, arguments.delay))
 

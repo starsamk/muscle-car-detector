@@ -1,0 +1,186 @@
+{
+  "total": 80,
+  "correct": 39,
+  "accuracy": 0.4875,
+  "no_detection": 8,
+  "negative_total": 32,
+  "false_positive_count": 18,
+  "false_positive_rate": 0.5625,
+  "negative_by_category": {
+    "1967 Pontiac GTO": {
+      "total": 8,
+      "false_positive_count": 2,
+      "false_positive_rate": 0.25,
+      "predictions": {
+        "__no_detection__": 1,
+        "chevrolet_camaro_classic": 2,
+        "other_car": 5
+      }
+    },
+    "Fiat Multipla I": {
+      "total": 8,
+      "false_positive_count": 4,
+      "false_positive_rate": 0.5,
+      "predictions": {
+        "chevrolet_corvette_classic": 1,
+        "ford_mustang_fastback_classic": 3,
+        "other_car": 4
+      }
+    },
+    "Toyota Corolla (E100) sedan": {
+      "total": 8,
+      "false_positive_count": 5,
+      "false_positive_rate": 0.625,
+      "predictions": {
+        "__no_detection__": 1,
+        "chevrolet_camaro_classic": 2,
+        "chevrolet_corvette_classic": 1,
+        "dodge_charger_classic": 1,
+        "ford_mustang_fastback_classic": 1,
+        "other_car": 2
+      }
+    },
+    "Volkswagen Golf VII": {
+      "total": 8,
+      "false_positive_count": 7,
+      "false_positive_rate": 0.875,
+      "predictions": {
+        "chevrolet_corvette_classic": 2,
+        "ford_mustang_fastback_classic": 5,
+        "other_car": 1
+      }
+    }
+  },
+  "threshold_sweep": [
+    {
+      "threshold": 0.4,
+      "accuracy": 0.4875,
+      "target_accuracy": 0.5625,
+      "false_positive_rate": 0.5625
+    },
+    {
+      "threshold": 0.5,
+      "accuracy": 0.525,
+      "target_accuracy": 0.5625,
+      "false_positive_rate": 0.46875
+    },
+    {
+      "threshold": 0.6,
+      "accuracy": 0.575,
+      "target_accuracy": 0.5416666666666666,
+      "false_positive_rate": 0.3125
+    },
+    {
+      "threshold": 0.7,
+      "accuracy": 0.5875,
+      "target_accuracy": 0.5416666666666666,
+      "false_positive_rate": 0.28125
+    },
+    {
+      "threshold": 0.8,
+      "accuracy": 0.6,
+      "target_accuracy": 0.5416666666666666,
+      "false_positive_rate": 0.25
+    },
+    {
+      "threshold": 0.9,
+      "accuracy": 0.6375,
+      "target_accuracy": 0.5,
+      "false_positive_rate": 0.09375
+    },
+    {
+      "threshold": 0.95,
+      "accuracy": 0.5875,
+      "target_accuracy": 0.4166666666666667,
+      "false_positive_rate": 0.09375
+    }
+  ],
+  "per_class": {
+    "chevrolet_camaro_classic": {
+      "total": 8,
+      "correct": 5,
+      "accuracy": 0.625,
+      "no_detection": 1
+    },
+    "chevrolet_corvette_classic": {
+      "total": 8,
+      "correct": 8,
+      "accuracy": 1.0,
+      "no_detection": 0
+    },
+    "dodge_charger_classic": {
+      "total": 8,
+      "correct": 4,
+      "accuracy": 0.5,
+      "no_detection": 1
+    },
+    "ford_mustang_convertible_classic": {
+      "total": 8,
+      "correct": 3,
+      "accuracy": 0.375,
+      "no_detection": 1
+    },
+    "ford_mustang_fastback_classic": {
+      "total": 8,
+      "correct": 3,
+      "accuracy": 0.375,
+      "no_detection": 3
+    },
+    "ford_mustang_hardtop_classic": {
+      "total": 8,
+      "correct": 4,
+      "accuracy": 0.5,
+      "no_detection": 0
+    },
+    "other_car": {
+      "total": 32,
+      "correct": 12,
+      "accuracy": 0.375,
+      "no_detection": 2
+    }
+  },
+  "confusion": {
+    "chevrolet_camaro_classic": {
+      "__no_detection__": 1,
+      "chevrolet_camaro_classic": 5,
+      "dodge_charger_classic": 1,
+      "ford_mustang_hardtop_classic": 1
+    },
+    "chevrolet_corvette_classic": {
+      "chevrolet_corvette_classic": 8
+    },
+    "dodge_charger_classic": {
+      "__no_detection__": 1,
+      "dodge_charger_classic": 4,
+      "ford_mustang_fastback_classic": 2,
+      "other_car": 1
+    },
+    "ford_mustang_convertible_classic": {
+      "__no_detection__": 1,
+      "chevrolet_camaro_classic": 1,
+      "ford_mustang_convertible_classic": 3,
+      "ford_mustang_fastback_classic": 2,
+      "ford_mustang_hardtop_classic": 1
+    },
+    "ford_mustang_fastback_classic": {
+      "__no_detection__": 3,
+      "ford_mustang_convertible_classic": 1,
+      "ford_mustang_fastback_classic": 3,
+      "ford_mustang_hardtop_classic": 1
+    },
+    "ford_mustang_hardtop_classic": {
+      "ford_mustang_convertible_classic": 1,
+      "ford_mustang_fastback_classic": 2,
+      "ford_mustang_hardtop_classic": 4,
+      "other_car": 1
+    },
+    "other_car": {
+      "__no_detection__": 2,
+      "chevrolet_camaro_classic": 4,
+      "chevrolet_corvette_classic": 4,
+      "dodge_charger_classic": 1,
+      "ford_mustang_fastback_classic": 9,
+      "other_car": 12
+    }
+  }
+}

@@ -284,6 +284,50 @@ runs/classify/classic-car-classifier-v3/weights/best.pt
 Copiez-le ensuite vers `weights/classifier-best.pt`. Ce fichier n'est pas
 versionné dans Git.
 
+## Évaluation terrain indépendante
+
+Une collecte d'évaluation doit exclure toutes les sources déjà présentes dans
+le dataset de revue. L'option `--exclude-manifest` filtre les titres, pages
+sources et SHA-256 connus :
+
+```bash
+python -m scripts.download_wikimedia \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --output datasets/field_evaluation_v3/raw \
+  --limit-per-category 500 \
+  --target-per-class 8 \
+  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
+```
+
+Le lot négatif utilise des catégories hors cible dédiées, dont Fiat Multipla,
+Volkswagen Golf et Toyota Corolla :
+
+```bash
+python -m scripts.download_wikimedia \
+  --taxonomy config/taxonomy_field_evaluation_negatives.json \
+  --class-slug other_car \
+  --output datasets/field_evaluation_v3/raw \
+  --limit-per-category 8 \
+  --target-per-class 40 \
+  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
+```
+
+L'évaluation end-to-end choisit la plus grande voiture détectée comme sujet de
+la photo et mesure notamment le taux de faux positifs sur `other_car` :
+
+```bash
+python -m scripts.evaluate_photo_spotter \
+  --manifest datasets/field_evaluation_v3/raw/manifest.jsonl \
+  --weights weights/classifier-best.pt \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --device mps
+```
+
+Les prédictions détaillées et les métriques agrégées sont écrites dans
+`reports/model_v3_field_predictions.csv` et
+`reports/model_v3_field_summary.json`.
+
 ## Exécution locale
 
 Python 3.10 ou supérieur est requis.
