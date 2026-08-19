@@ -110,6 +110,22 @@ class DatasetConfigurationTests(unittest.TestCase):
             "Chevrolet Camaro (classic)",
         )
 
+    def test_mustang_generalization_profile_keeps_body_styles_separate(self) -> None:
+        """The V5 positive collection must target only the two Mustang body styles."""
+        taxonomy = load_taxonomy(Path("config/taxonomy_vehicle_v3.json"))
+        profile = load_profile(
+            Path("config/profiles/vehicle_taxonomy_v3_mustang_generalization.json"),
+            taxonomy,
+        )
+
+        self.assertEqual(
+            profile.class_slugs,
+            (
+                "ford_mustang_fastback_classic",
+                "ford_mustang_hardtop_classic",
+            ),
+        )
+
 
 class TaxonomyMigrationTests(unittest.TestCase):
     """Verify that legacy reviewed data migrates without source mutations."""
