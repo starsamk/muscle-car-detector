@@ -20,7 +20,9 @@ spécialisé identifie son modèle, sa période et, lorsque pertinent, sa carros
 │   └── profiles/mustang_mvp.json       # Sous-ensemble du premier modèle
 ├── scripts/
 │   ├── crop_dataset.py                 # Recadrage automatique par YOLO
+│   ├── collect_open_images_negatives.py
 │   ├── download_wikimedia.py           # Collecte avec licences
+│   ├── merge_review_dataset.py          # Fusion traçable des files de revue
 │   ├── prepare_classification_dataset.py
 │   └── validate_classification_dataset.py
 ├── requirements.txt
@@ -114,6 +116,72 @@ python -m scripts.validate_classification_dataset \
   --taxonomy config/taxonomy_vehicle_v3.json \
   --profile config/profiles/vehicle_taxonomy_v3_bootstrap.json \
   --minimum-per-split 5
+```
+
+### Collecte V3
+
+La collecte des quatre classes manquantes utilise un profil dédié afin de ne
+pas retélécharger les Fastback et Hardtop déjà validés :
+
+```bash
+python -m scripts.download_wikimedia \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3_missing_positive_collection.json \
+  --output datasets/vehicle_taxonomy_v3/raw \
+  --limit-per-category 80
+```
+
+Les négatifs difficiles Wikimedia sont collectés séparément dans la même
+taxonomie avec `config/profiles/vehicle_taxonomy_v3_hard_negative_collection.json`.
+Ils restent des candidats jusqu'à leur validation humaine.
+
+Pour ajouter des négatifs Open Images, téléchargez seulement les métadonnées de
+validation nécessaires :
+
+```bash
+mkdir -p datasets/metadata/open_images_v5
+curl -L -o datasets/metadata/open_images_v5/validation-annotations-bbox.csv \
+  https://storage.googleapis.com/openimages/v5/validation-annotations-bbox.csv
+curl -L -o datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
+  https://storage.googleapis.com/openimages/2018_04/validation/validation-images-with-rotation.csv
+curl -L -o datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
+  https://storage.googleapis.com/openimages/v7/oidv7-class-descriptions-boxable.csv
+
+python -m scripts.collect_open_images_negatives \
+  --annotations datasets/metadata/open_images_v5/validation-annotations-bbox.csv \
+  --metadata datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
+  --class-descriptions datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
+  --output datasets/vehicle_taxonomy_v3/open_images_negatives \
+  --limit-per-class 200 \
+  --max-images 1000
+```
+
+Le filtre exclut les boîtes intérieures et les groupes d'objets. Les candidats
+Open Images gardent leur URL, leur auteur et leur licence ; ils doivent tout de
+même passer par la revue Car Spotter avant d'intégrer `other_car`.
+
+Après recadrage, les trois sources peuvent être réunies dans une file de revue
+unique. Le premier manifeste reste prioritaire et les doublons SHA-256 sont
+ignorés :
+
+```bash
+python -m scripts.merge_review_dataset \
+  --manifest datasets/vehicle_taxonomy_v3/cropped/manifest.jsonl \
+  --manifest datasets/vehicle_taxonomy_v3/new_collection/cropped/manifest.jsonl \
+  --manifest datasets/vehicle_taxonomy_v3/open_images_negatives/cropped/manifest.jsonl \
+  --decisions datasets/vehicle_taxonomy_v3/review/decisions.json \
+  --output-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
+  --output-decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json
+```
+
+Pour ouvrir cette file dans Streamlit :
+
+```bash
+export CAR_SPOTTER_REVIEW_MANIFEST=datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
+export CAR_SPOTTER_REVIEW_DECISIONS=datasets/vehicle_taxonomy_v3/review_queue/decisions.json
+export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_vehicle_v3.json
+export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/vehicle_taxonomy_v3.json
+streamlit run dataset_review_app.py --server.port 8503
 ```
 
 ## Construction du dataset

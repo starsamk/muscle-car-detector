@@ -128,7 +128,19 @@
       "year_start": 0,
       "year_end": 0,
       "show_year_range": false,
-      "wikimedia_categories": []
+      "wikimedia_categories": [
+        "1967 Pontiac GTO",
+        "1968 Pontiac Firebird",
+        "1969 Chevrolet Chevelle",
+        "1968 Plymouth Barracuda",
+        "1969 Plymouth Road Runner",
+        "1965 Ford Thunderbird",
+        "1970 Chevrolet Monte Carlo",
+        "2015 Ford Mustang",
+        "2015 Dodge Challenger",
+        "2015 Chevrolet Camaro",
+        "2015 Chevrolet Corvette"
+      ]
     }
   ]
 }

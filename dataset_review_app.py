@@ -144,7 +144,7 @@ def render_record(
 def main() -> None:
     """Run the interactive dataset review workflow."""
     st.set_page_config(page_title="Car Spotter — Dataset Review", layout="wide")
-    st.title("Validation du dataset Mustang MVP")
+    st.title("Validation du dataset Car Spotter")
     st.caption(
         "Acceptez, corrigez ou rejetez chaque recadrage avant l'entraînement."
     )

@@ -1,0 +1,8 @@
+{
+  "schema_version": 3,
+  "name": "vehicle_taxonomy_v3_hard_negative_collection",
+  "description": "Wikimedia collection profile for visually confusable but out-of-scope vehicles.",
+  "class_slugs": [
+    "other_car"
+  ]
+}
