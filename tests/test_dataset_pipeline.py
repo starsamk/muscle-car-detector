@@ -7,10 +7,20 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dataset_config import DatasetConfigError, load_profile, load_taxonomy
+from dataset_config import (
+    DatasetConfigError,
+    load_profile,
+    load_taxonomy,
+)
 from review_store import ReviewDecision, load_decisions, save_decisions
 from scripts.crop_dataset import Detection, padded_box, select_detection
 from scripts.prepare_classification_dataset import split_for_group
+from taxonomy_migration import (
+    TaxonomyMigrationError,
+    load_class_mapping,
+    migrate_manifest_records,
+    migrate_review_decisions,
+)
 
 
 class DatasetConfigurationTests(unittest.TestCase):
@@ -40,6 +50,89 @@ class DatasetConfigurationTests(unittest.TestCase):
             )
             with self.assertRaises(DatasetConfigError):
                 load_profile(path, taxonomy)
+
+    def test_body_style_v2_has_unambiguous_labels(self) -> None:
+        """V2 labels must not expose an unsupported production-year prediction."""
+        taxonomy = load_taxonomy(Path("config/taxonomy_mustang_body_style_v2.json"))
+        profile = load_profile(
+            Path("config/profiles/mustang_body_style_v2.json"), taxonomy
+        )
+
+        self.assertEqual(len(profile.class_slugs), 4)
+        self.assertEqual(
+            taxonomy["ford_mustang_fastback_classic"].label,
+            "Ford Mustang Fastback (classic)",
+        )
+
+
+class TaxonomyMigrationTests(unittest.TestCase):
+    """Verify that legacy reviewed data migrates without source mutations."""
+
+    def setUp(self) -> None:
+        """Load the committed target taxonomy and mapping."""
+        self.taxonomy = load_taxonomy(
+            Path("config/taxonomy_mustang_body_style_v2.json")
+        )
+        self.target_slugs = set(self.taxonomy)
+        self.mapping = load_class_mapping(
+            Path("config/mappings/mustang_mvp_to_body_style_v2.json"),
+            self.target_slugs,
+        )
+
+    def test_manifest_migration_preserves_legacy_class(self) -> None:
+        """Changed manifest labels must retain their prior class for traceability."""
+        records = [
+            {
+                "record_id": "record-1",
+                "class_slug": "ford_mustang_fastback_1967_1968",
+            }
+        ]
+
+        migrated = migrate_manifest_records(
+            records, self.mapping, self.target_slugs
+        )
+
+        self.assertEqual(
+            records[0]["class_slug"], "ford_mustang_fastback_1967_1968"
+        )
+        self.assertEqual(
+            migrated[0]["class_slug"], "ford_mustang_fastback_classic"
+        )
+        self.assertEqual(
+            migrated[0]["legacy_class_slug"],
+            "ford_mustang_fastback_1967_1968",
+        )
+
+    def test_decision_migration_keeps_review_metadata(self) -> None:
+        """Migrated decisions must retain the original status and timestamp."""
+        decision = ReviewDecision(
+            record_id="record-1",
+            status="accepted",
+            class_slug="ford_mustang_hardtop_1964_1966",
+            reviewed_at="2026-08-19T00:00:00+00:00",
+        )
+
+        migrated = migrate_review_decisions(
+            {decision.record_id: decision}, self.mapping, self.target_slugs
+        )
+
+        self.assertEqual(migrated["record-1"].status, "accepted")
+        self.assertEqual(
+            migrated["record-1"].class_slug,
+            "ford_mustang_hardtop_classic",
+        )
+        self.assertEqual(
+            migrated["record-1"].reviewed_at, decision.reviewed_at
+        )
+
+    def test_unknown_legacy_class_fails_migration(self) -> None:
+        """Unmapped labels must stop migration instead of silently changing data."""
+        with self.assertRaises(TaxonomyMigrationError):
+            migrate_manifest_records(
+                [{"class_slug": "unknown_legacy_class"}],
+                self.mapping,
+                self.target_slugs,
+            )
 
 
 class CroppingTests(unittest.TestCase):

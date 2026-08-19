@@ -11,6 +11,12 @@ DEFAULT_TAXONOMY_PATH: Final[Path] = Path("config/taxonomy.json")
 DEFAULT_MVP_PROFILE_PATH: Final[Path] = Path(
     "config/profiles/mustang_mvp.json"
 )
+DEFAULT_MUSTANG_BODY_STYLE_TAXONOMY_PATH: Final[Path] = Path(
+    "config/taxonomy_mustang_body_style_v2.json"
+)
+DEFAULT_MUSTANG_BODY_STYLE_PROFILE_PATH: Final[Path] = Path(
+    "config/profiles/mustang_body_style_v2.json"
+)
 
 
 class DatasetConfigError(RuntimeError):
@@ -29,12 +35,17 @@ class TaxonomyClass:
     body_style: str
     year_start: int
     year_end: int
+    show_year_range: bool
     wikimedia_categories: tuple[str, ...]
 
     @property
     def label(self) -> str:
         """Return an unambiguous user-facing model and production period."""
-        if self.year_start <= 0 or self.year_end <= 0:
+        if (
+            not self.show_year_range
+            or self.year_start <= 0
+            or self.year_end <= 0
+        ):
             return self.display_name
         period: str = (
             str(self.year_start)
@@ -90,6 +101,29 @@ def required_integer(mapping: dict[str, Any], key: str, source: Path) -> int:
     return value
 
 
+def optional_boolean(
+    mapping: dict[str, Any], key: str, default: bool, source: Path
+) -> bool:
+    """Read an optional boolean field with strict validation.
+
+    Args:
+        mapping: Configuration object containing the value.
+        key: Field name to read.
+        default: Value used when the field is absent.
+        source: Source configuration path used in error messages.
+
+    Returns:
+        The configured boolean or the supplied default.
+
+    Raises:
+        DatasetConfigError: If the configured value is not a boolean.
+    """
+    value: object = mapping.get(key, default)
+    if not isinstance(value, bool):
+        raise DatasetConfigError(f"'{key}' must be a boolean in '{source}'.")
+    return value
+
+
 def load_taxonomy(path: Path = DEFAULT_TAXONOMY_PATH) -> dict[str, TaxonomyClass]:
     """Load and validate all configured taxonomy classes.
 
@@ -136,6 +170,9 @@ def load_taxonomy(path: Path = DEFAULT_TAXONOMY_PATH) -> dict[str, TaxonomyClass
             body_style=str(raw_class.get("body_style", "")).strip(),
             year_start=year_start,
             year_end=year_end,
+            show_year_range=optional_boolean(
+                raw_class, "show_year_range", True, path
+            ),
             wikimedia_categories=tuple(
                 str(category).strip() for category in raw_categories
             ),
@@ -209,6 +246,8 @@ def select_taxonomy_classes(
 
 __all__: list[str] = [
     "DEFAULT_MVP_PROFILE_PATH",
+    "DEFAULT_MUSTANG_BODY_STYLE_PROFILE_PATH",
+    "DEFAULT_MUSTANG_BODY_STYLE_TAXONOMY_PATH",
     "DEFAULT_TAXONOMY_PATH",
     "DatasetConfigError",
     "DatasetProfile",
