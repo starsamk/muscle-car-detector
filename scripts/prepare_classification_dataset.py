@@ -8,10 +8,10 @@ import hashlib
 import json
 import logging
 import shutil
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Iterable
+from typing import Any, Final, Iterable, Sequence
 
 from PIL import Image, UnidentifiedImageError
 
@@ -275,6 +275,103 @@ def split_for_group(group_key: str, train_ratio: float, val_ratio: float) -> str
     return "test"
 
 
+def assign_group_splits(
+    records: Sequence[ImageRecord], train_ratio: float, val_ratio: float
+) -> dict[str, str]:
+    """Assign source groups to stratified train, validation, and test splits.
+
+    Groups are never divided between splits. The greedy assignment minimizes
+    per-class deviation from the requested ratios and gives a deterministic
+    priority to empty validation/test buckets when a class has enough distinct
+    groups to populate them.
+
+    Args:
+        records: Deduplicated image records.
+        train_ratio: Fraction assigned to training.
+        val_ratio: Fraction assigned to validation.
+
+    Returns:
+        Mapping from group key to one of ``train``, ``val``, or ``test``.
+
+    Raises:
+        DatasetPreparationError: If ratios are invalid or a record has no group.
+    """
+    if train_ratio <= 0.0 or val_ratio <= 0.0 or train_ratio + val_ratio >= 1.0:
+        raise DatasetPreparationError(
+            "Train and validation ratios must total between 0 and 1."
+        )
+    if not records:
+        return {}
+
+    split_ratios: dict[str, float] = {
+        "train": train_ratio,
+        "val": val_ratio,
+        "test": 1.0 - train_ratio - val_ratio,
+    }
+    group_classes: dict[str, Counter[str]] = defaultdict(Counter)
+    class_totals: Counter[str] = Counter()
+    for record in records:
+        group_key: str = record.group_key.strip()
+        if not group_key:
+            raise DatasetPreparationError(
+                f"Record '{record.record_id}' has no stable source group."
+            )
+        group_classes[group_key][record.class_slug] += 1
+        class_totals[record.class_slug] += 1
+
+    groups_per_class: Counter[str] = Counter()
+    for class_counts in group_classes.values():
+        groups_per_class.update(class_counts)
+
+    target_counts: dict[str, Counter[str]] = {
+        split: Counter(
+            {
+                class_slug: total * ratio
+                for class_slug, total in class_totals.items()
+            }
+        )
+        for split, ratio in split_ratios.items()
+    }
+    assigned_counts: dict[str, Counter[str]] = {
+        split: Counter() for split in SPLITS
+    }
+    group_assignments: dict[str, str] = {}
+
+    ordered_groups: list[tuple[str, Counter[str]]] = sorted(
+        group_classes.items(),
+        key=lambda item: (-sum(item[1].values()), item[0]),
+    )
+    for group_key, group_count in ordered_groups:
+        best_split: str | None = None
+        best_score: float | None = None
+        for split in SPLITS:
+            current_counts: Counter[str] = assigned_counts[split]
+            score: float = 0.0
+            for class_slug, group_size in group_count.items():
+                target: float = target_counts[split][class_slug]
+                before: float = current_counts[class_slug]
+                after: float = before + group_size
+                denominator: float = max(target, 1.0)
+                score += ((after - target) ** 2 - (before - target) ** 2) / denominator
+                if groups_per_class[class_slug] >= len(SPLITS) and before == 0:
+                    score -= 100.0
+            if best_score is None or score < best_score:
+                best_split = split
+                best_score = score
+        if best_split is None:
+            raise DatasetPreparationError(
+                f"Unable to assign source group '{group_key}' to a split."
+            )
+        group_assignments[group_key] = best_split
+        assigned_counts[best_split].update(group_count)
+
+    LOGGER.info("Stratified split counts: %s", {
+        split: dict(sorted(counts.items()))
+        for split, counts in assigned_counts.items()
+    })
+    return group_assignments
+
+
 def place_file(source: Path, destination: Path, copy_files: bool) -> None:
     """Copy or hard-link an image into its prepared split.
 
@@ -319,8 +416,11 @@ def write_prepared_dataset(
     split_counts: dict[str, dict[str, int]] = defaultdict(
         lambda: defaultdict(int)
     )
+    group_assignments: dict[str, str] = assign_group_splits(
+        records, train_ratio, val_ratio
+    )
     for record in records:
-        split: str = split_for_group(record.group_key, train_ratio, val_ratio)
+        split: str = group_assignments[record.group_key]
         destination_name: str = record.sha256[:20] + record.source_path.suffix.lower()
         destination: Path = (
             output_directory / split / record.class_slug / destination_name
@@ -340,6 +440,7 @@ def write_prepared_dataset(
                 "sha256": record.sha256,
                 "perceptual_hash": record.perceptual_hash,
                 "record_id": record.record_id,
+                "group_key": record.group_key,
                 "review_status": record.review_status,
             }
         )

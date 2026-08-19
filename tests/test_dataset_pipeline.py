@@ -14,7 +14,11 @@ from dataset_config import (
 )
 from review_store import ReviewDecision, load_decisions, save_decisions
 from scripts.crop_dataset import Detection, padded_box, select_detection
-from scripts.prepare_classification_dataset import split_for_group
+from scripts.prepare_classification_dataset import (
+    ImageRecord,
+    assign_group_splits,
+    split_for_group,
+)
 from scripts.merge_review_dataset import (
     DatasetMergeError,
     merge_decisions,
@@ -213,6 +217,40 @@ class ReviewStoreTests(unittest.TestCase):
         second = split_for_group("author:example", 0.70, 0.15)
 
         self.assertEqual(first, second)
+
+    def test_stratified_split_covers_small_classes(self) -> None:
+        """Small classes with enough groups must reach validation and test."""
+        records: list[ImageRecord] = []
+        for class_slug in ("camaro", "charger"):
+            for group_index in range(3):
+                records.append(
+                    ImageRecord(
+                        class_slug=class_slug,
+                        source_path=Path(f"{class_slug}-{group_index}.jpg"),
+                        source_title="",
+                        author=f"author-{class_slug}-{group_index}",
+                        license_name="",
+                        license_url="",
+                        source_page="",
+                        sha256=f"{class_slug}-{group_index}",
+                        perceptual_hash=f"{class_slug}-{group_index}",
+                        record_id=f"{class_slug}-{group_index}",
+                        review_status="accepted",
+                    )
+                )
+
+        assignments = assign_group_splits(records, 0.70, 0.15)
+        class_splits = {
+            class_slug: {
+                assignments[record.group_key]
+                for record in records
+                if record.class_slug == class_slug
+            }
+            for class_slug in ("camaro", "charger")
+        }
+
+        self.assertEqual(class_splits["camaro"], {"train", "val", "test"})
+        self.assertEqual(class_splits["charger"], {"train", "val", "test"})
 
     def test_manifest_merge_deduplicates_by_sha256(self) -> None:
         """The first source record wins when two manifests contain one image."""
