@@ -410,7 +410,7 @@ def render_image_preview(image: Image.Image, caption: str) -> None:
         unsafe_allow_html=True,
     )
     st.markdown('<div class="image-frame">', unsafe_allow_html=True)
-    st.image(image, use_container_width=True)
+    st.image(image, use_column_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 
