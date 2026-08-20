@@ -1,366 +1,418 @@
 # Car Spotter AI
 
-Application de reconnaissance de voitures américaines classiques basée sur
-YOLOv8 et Streamlit. Un détecteur localise chaque voiture, puis un classifieur
-spécialisé identifie son modèle, sa période et, lorsque pertinent, sa carrosserie.
+Car Spotter AI est une application open source de Computer Vision qui détecte
+une voiture dans une photo, l'encadre et propose son modèle ainsi que sa
+carrosserie. Le projet est conçu pour reconnaître des voitures américaines
+classiques des années 1960, avec une interface Streamlit locale et un pipeline
+d'entraînement reproductible basé sur YOLOv8.
+
+> Projet personnel et démonstrateur expérimental. Les prédictions sont
+> indicatives : pour obtenir de meilleurs résultats sur vos propres photos,
+> constituez votre propre dataset et réentraînez le modèle avec vos propres
+> poids.
+
+## Fonctionnalités
+
+- Détection de la voiture avec YOLOv8n.
+- Recadrage de la voiture principale et dessin d'une bounding box.
+- Classification fine avec un modèle YOLOv8-cls.
+- Identification de la carrosserie Mustang : Fastback, Hardtop ou Convertible.
+- Classe de rejet `other_car` pour limiter les faux positifs.
+- Affichage du modèle, de la carrosserie et de la confiance directement sur
+  l'image.
+- Interface Streamlit moderne, responsive et exécutable localement ou dans un
+  conteneur Docker.
+- Outils de collecte, recadrage, revue humaine, préparation de dataset,
+  validation et entraînement.
+
+## Périmètre du modèle fourni
+
+Le checkpoint distribué dans `weights/classifier-best.pt` est le modèle V5
+final du MVP. Il couvre actuellement sept classes :
+
+| Classe | Description |
+| --- | --- |
+| `ford_mustang_fastback_classic` | Ford Mustang Fastback classique |
+| `ford_mustang_hardtop_classic` | Ford Mustang Hardtop classique |
+| `ford_mustang_convertible_classic` | Ford Mustang Convertible classique |
+| `chevrolet_camaro_classic` | Chevrolet Camaro classique |
+| `chevrolet_corvette_classic` | Chevrolet Corvette classique |
+| `dodge_charger_classic` | Dodge Charger classique |
+| `other_car` | Véhicule hors périmètre ou non identifiable |
+
+Le modèle distingue la carrosserie Mustang, mais ne garantit pas l'année exacte
+ni la génération exacte dans chaque photo. Challenger et Impala sont prévus
+comme extensions futures et ne font pas partie du checkpoint fourni.
+
+Les résultats de l'évaluation V5 sont disponibles dans
+[`reports/model_v5_evaluation.md`](reports/model_v5_evaluation.md). Le modèle
+est adapté à une démonstration personnelle, mais ne doit pas être présenté
+comme un système de production ou d'identification fiable à 100 %.
+
+## Stack technique
+
+- Python 3.10 ou supérieur.
+- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) pour la
+  détection et la classification.
+- PyTorch et torchvision pour l'inférence et l'entraînement.
+- Streamlit 1.39 pour l'interface web.
+- Pillow et NumPy pour le traitement d'image.
+- Docker avec une image multi-stage `python:3.10-slim-bookworm`.
+- Utilisateur Docker non-root `appuser`.
+- Dépendances verrouillées dans [`requirements.txt`](requirements.txt).
 
 ## Architecture
 
 ```text
 .
-├── app.py                              # Interface Streamlit
-├── dataset_review_app.py               # Validation humaine des images
-├── dataset_config.py                   # Chargement typé taxonomie/profils
+├── app.py                              # Interface Streamlit principale
 ├── model.py                            # API publique d'inférence
-├── photo_model.py                      # Détection + classification fine
-├── review_store.py                     # Persistance atomique des décisions
+├── photo_model.py                      # Détection + classification photo
+├── dataset_review_app.py               # Revue humaine des images
+├── dataset_config.py                   # Taxonomies et profils typés
+├── review_store.py                     # Sauvegarde des décisions de revue
 ├── train_classifier.py                 # Entraînement YOLOv8-cls
+├── taxonomy_migration.py               # Migration entre taxonomies
 ├── config/
-│   ├── taxonomy.json                   # Classes et sources Wikimedia
-│   └── profiles/mustang_mvp.json       # Sous-ensemble du premier modèle
+│   ├── taxonomy_vehicle_v3.json        # Classes et métadonnées V3
+│   └── profiles/                       # Profils de collecte et d'entraînement
 ├── scripts/
-│   ├── crop_dataset.py                 # Recadrage automatique par YOLO
-│   ├── collect_open_images_negatives.py
-│   ├── download_wikimedia.py           # Collecte avec licences
-│   ├── merge_review_dataset.py          # Fusion traçable des files de revue
+│   ├── download_wikimedia.py           # Collecte avec métadonnées de licence
+│   ├── collect_open_images_negatives.py# Collecte de négatifs génériques
+│   ├── crop_dataset.py                 # Détection et recadrage YOLO
+│   ├── merge_review_dataset.py         # Fusion de files de revue
 │   ├── prepare_classification_dataset.py
-│   └── validate_classification_dataset.py
+│   ├── validate_classification_dataset.py
+│   └── evaluate_photo_spotter.py       # Évaluation end-to-end
+├── datasets/                           # Données locales, ignorées par Git
+├── runs/                               # Sorties d'entraînement, ignorées par Git
+├── weights/
+│   └── classifier-best.pt              # Checkpoint V5 distribué
 ├── requirements.txt
 ├── Dockerfile
-└── weights/
-    └── classifier-best.pt              # Classifieur entraîné (à fournir)
+└── tests/
 ```
 
-La taxonomie couvre 1960 à 1974. Pour la Mustang, les carrosseries hardtop,
-fastback/SportsRoof et convertible sont séparées lorsqu'il existe assez de
-données. Les autres modèles sont regroupés par génération visuelle.
+## Pipeline d'inférence
 
-## MVP Mustang
-
-Le premier poids est volontairement limité à cinq classes : Mustang hardtop et
-fastback pour 1964–1966 et 1967–1968, plus `other_car`. Ce périmètre permet de
-valider tout le cycle de données et la distinction de carrosserie avant
-d'ajouter les autres générations, puis Charger, Challenger, Camaro, Corvette et
-Impala. Le profil est défini dans `config/profiles/mustang_mvp.json` sans réduire
-la taxonomie cible complète.
-
-### Transition vers les carrosseries Mustang
-
-La v2 prépare un modèle plus robuste : il ne prédit plus une année, mais une
-carrosserie Mustang classique (`Fastback`, `Hardtop` ou `Convertible`). La v1 et
-son poids actuel restent inchangés pendant la transition. La nouvelle taxonomie
-est dans `config/taxonomy_mustang_body_style_v2.json` et son profil dans
-`config/profiles/mustang_body_style_v2.json`.
-
-Les images et décisions déjà revues peuvent être migrées sans les recopier ni
-les réviser. La commande écrit uniquement de nouveaux manifestes dérivés :
-
-```bash
-python -m scripts.migrate_taxonomy
+```mermaid
+flowchart LR
+    A[Photo uploadée] --> B[YOLOv8n détecteur]
+    B --> C[Bounding box principale]
+    C --> D[Recadrage de la voiture]
+    D --> E[Classifieur YOLOv8-cls V5]
+    E --> F{Confiance >= 0,50}
+    F --> G[Label + box + confiance]
+    F --> H[other_car ou résultat rejeté]
 ```
 
-Les sorties par défaut sont `datasets/mustang_body_style_v2/`. Pour ouvrir la
-revue de cette future version, configurez les chemins suivants avant Streamlit :
+Le détecteur et le classifieur sont volontairement séparés. Le détecteur
+répond à « où est la voiture ? », tandis que le classifieur répond à « quelle
+classe lui correspond ? ». Le seuil applicatif V5 est fixé à `0.50` pour
+réduire les faux positifs observés sur les véhicules hors cible.
 
-```bash
-export CAR_SPOTTER_REVIEW_MANIFEST=datasets/mustang_body_style_v2/cropped/manifest.jsonl
-export CAR_SPOTTER_REVIEW_DECISIONS=datasets/mustang_body_style_v2/review/decisions.json
-export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_mustang_body_style_v2.json
-export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/mustang_body_style_v2.json
-streamlit run dataset_review_app.py
+## Pipeline de données et d'entraînement
+
+```mermaid
+flowchart LR
+    A[Sources d'images] --> B[datasets/<experiment>/raw]
+    B --> C[crop_dataset.py]
+    C --> D[Recadrages + manifest]
+    D --> E[Revue humaine Streamlit]
+    E --> F[prepare_classification_dataset.py]
+    F --> G[train / val / test]
+    G --> H[validate_classification_dataset.py]
+    H --> I[train_classifier.py]
+    I --> J[runs/classify/.../weights/best.pt]
+    J --> K[Évaluation terrain]
+    K --> L[weights/classifier-best.pt]
 ```
 
-### Taxonomie véhicule V3
+La séparation par source et la revue humaine sont importantes. Elles évitent
+de placer des images quasi identiques dans `train` et `test`, et permettent de
+rejeter les intérieurs, les photos trop éloignées, les images ambiguës et les
+véhicules hors sujet.
 
-La V3 définit le premier périmètre multi-modèles : Mustang Fastback, Mustang
-Hardtop, Mustang Convertible, Camaro, Corvette, Charger et `other_car`. Les
-années servent à documenter les sources, mais ne sont pas affichées comme une
-prédiction indépendante. Les fichiers sont `config/taxonomy_vehicle_v3.json`
-et `config/profiles/vehicle_taxonomy_v3.json`.
+## Setup local complet
 
-Les images déjà validées V2 ont été migrées vers cette taxonomie sans recopier
-les sources. Elles alimentent actuellement 222 Fastback, 287 Hardtop et 135
-`other_car`. Les classes Convertible, Camaro, Corvette et Charger restent
-volontairement vides jusqu'à leur collecte et validation dédiées. `other_car`
-conserve ses négatifs validés (Firebird, Chevelle, GTO, Barracuda, Thunderbird,
-Monte Carlo et Road Runner) ; ils ne sont pas artificiellement transformés en
-une des nouvelles classes.
+### Prérequis
 
-Pour régénérer les métadonnées dérivées localement :
+- macOS, Linux ou Windows avec Python 3.10+.
+- Git.
+- Environ 5 à 10 Go d'espace libre pour les dépendances, les images et les
+  sorties d'entraînement.
+- Pour un Mac Apple Silicon, PyTorch peut utiliser `mps`.
+- Pour Docker, Docker Desktop doit être installé et démarré.
+
+### 1. Cloner le dépôt
 
 ```bash
-python -m scripts.migrate_taxonomy \
-  --manifest datasets/mustang_body_style_v2/cropped/manifest.jsonl \
-  --decisions datasets/mustang_body_style_v2/review/decisions.json \
-  --target-taxonomy config/taxonomy_vehicle_v3.json \
-  --mapping config/mappings/body_style_v2_to_vehicle_v3.json \
-  --output-manifest datasets/vehicle_taxonomy_v3/cropped/manifest.jsonl \
-  --output-decisions datasets/vehicle_taxonomy_v3/review/decisions.json
+git clone https://github.com/starsamk/muscle-car-detector.git
+cd muscle-car-detector
 ```
 
-Le profil `config/profiles/vehicle_taxonomy_v3_bootstrap.json` est réservé à
-la vérification technique des trois classes actuellement disponibles. Il ne
-doit pas servir à produire le poids final multi-modèles : ce poids attendra la
-collecte des quatre classes manquantes.
+Ces commandes téléchargent le code et placent le terminal à la racine du
+projet.
+
+### 2. Créer l'environnement Python
 
 ```bash
-python -m scripts.prepare_classification_dataset \
-  --manifest datasets/vehicle_taxonomy_v3/cropped/manifest.jsonl \
-  --decisions datasets/vehicle_taxonomy_v3/review/decisions.json \
-  --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3_bootstrap.json \
-  --output datasets/classification_vehicle_v3_bootstrap
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
+La première commande crée un environnement isolé dans `.venv`. La seconde
+active cet environnement pour que les commandes `python` et `pip` utilisent les
+versions du projet.
+
+Sous Windows PowerShell :
+
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+### 3. Installer les dépendances
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+La première commande met `pip` à jour. La seconde installe les versions
+verrouillées de NumPy, Pillow, Streamlit, PyTorch, torchvision et Ultralytics.
+
+### 4. Vérifier le checkpoint fourni
+
+Le poids V5 est déjà fourni dans le dépôt :
+
+```bash
+ls -lh weights/classifier-best.pt
+```
+
+Le fichier est chargé automatiquement par défaut. Il est possible de vérifier
+le chemin et le seuil utilisés par l'application avec :
+
+```bash
+export CAR_SPOTTER_CLASSIFIER_PATH=weights/classifier-best.pt
+export CAR_SPOTTER_CLASSIFICATION_CONFIDENCE=0.50
+export CAR_SPOTTER_DEVICE=mps
+```
+
+Sur une machine sans Apple Silicon, remplacez `mps` par `cpu`. Le mot-clé
+`auto` est aussi accepté et sélectionne le meilleur périphérique disponible.
+
+### 5. Lancer l'application
+
+```bash
+streamlit run app.py
+```
+
+Cette commande démarre l'interface principale sur
+<http://localhost:8501>. Importez une photo extérieure, cliquez sur
+**Analyser la photo**, puis consultez l'image annotée et les classes prédites.
+
+Pour arrêter l'application :
+
+```bash
+Ctrl+C
+```
+
+### 6. Lancer les tests et les contrôles qualité
+
+```bash
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+```
+
+Ces commandes vérifient respectivement les erreurs de style, le formatage et
+les tests unitaires du pipeline.
+
+## Utiliser vos propres données
+
+Le checkpoint fourni est un point de départ, pas une garantie de résultat sur
+un autre appareil photo, une autre région, un autre cadrage ou une autre
+taxonomie. Il est vivement recommandé de constituer votre propre dataset et
+de réentraîner le modèle avec vos propres poids si vous voulez l'utiliser sur
+des photos de terrain spécifiques.
+
+### Option A — Dataset de classification déjà préparé
+
+Pour un premier entraînement simple, créez cette arborescence sous `datasets/`.
+Le dossier `datasets/` est ignoré par Git : vos images personnelles ne seront
+pas poussées dans le dépôt.
+
+```text
+datasets/classification_vehicle_custom/
+├── train/
+│   ├── ford_mustang_fastback_classic/
+│   ├── ford_mustang_hardtop_classic/
+│   ├── ford_mustang_convertible_classic/
+│   ├── chevrolet_camaro_classic/
+│   ├── chevrolet_corvette_classic/
+│   ├── dodge_charger_classic/
+│   └── other_car/
+├── val/
+│   └── mêmes classes que train/
+└── test/
+    └── mêmes classes que train/
+```
+
+Chaque classe contient ses propres fichiers `.jpg`, `.jpeg`, `.png` ou `.webp`.
+Les trois dossiers doivent contenir exactement les mêmes classes.
+
+Conseils de constitution :
+
+- Visez au moins 200 à 500 images réellement différentes par classe.
+- Gardez les classes équilibrées autant que possible.
+- Variez les angles, distances, saisons, couleurs, arrière-plans et conditions
+  de lumière.
+- Mettez les images issues d'une même série ou d'une même source dans un seul
+  split afin d'éviter les fuites entre entraînement et test.
+- Ajoutez des négatifs difficiles dans `other_car` : modèles proches,
+  versions modernes, véhicules vus dans vos conditions réelles et photos sans
+  voiture exploitable.
+- Ne mélangez pas les intérieurs, les détails de logo et les photos trop
+  recadrées avec les photos extérieures destinées à la détection.
+
+Validez ensuite la structure :
+
+```bash
 python -m scripts.validate_classification_dataset \
-  --data datasets/classification_vehicle_v3_bootstrap \
+  --data datasets/classification_vehicle_custom \
   --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3_bootstrap.json \
-  --minimum-per-split 5
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --minimum-per-split 20
 ```
 
-### Collecte V3
+### Option B — Pipeline complète avec collecte, recadrage et revue
 
-La collecte des quatre classes manquantes utilise un profil dédié afin de ne
-pas retélécharger les Fastback et Hardtop déjà validés :
+Cette option est préférable pour un dataset traçable. Les images et leurs
+métadonnées restent dans `datasets/<nom-de-lexperience>/` :
+
+```text
+datasets/my_vehicle_experiment/
+├── raw/
+│   ├── images/
+│   └── manifest.jsonl
+├── cropped/
+│   └── manifest.jsonl
+├── review/
+│   ├── decisions.json
+│   └── deleted.json
+└── classification/
+    ├── train/
+    ├── val/
+    └── test/
+```
+
+Pour une collecte Wikimedia avec attribution et licence :
 
 ```bash
 python -m scripts.download_wikimedia \
   --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3_missing_positive_collection.json \
-  --output datasets/vehicle_taxonomy_v3/raw \
-  --limit-per-category 120 \
-  --target-per-class 150
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --output datasets/my_vehicle_experiment/raw \
+  --limit-per-category 100 \
+  --target-per-class 200
 ```
 
-Les négatifs difficiles Wikimedia sont collectés séparément dans la même
-taxonomie avec `config/profiles/vehicle_taxonomy_v3_hard_negative_collection.json`.
-`--target-per-class` permet de reprendre une collecte sans dépasser un objectif
-de volume déjà présent dans le manifeste.
-Ils restent des candidats jusqu'à leur validation humaine.
+Cette commande télécharge les images dans `raw/`, crée un manifeste JSONL et
+conserve l'URL, le titre, l'auteur, la licence et le SHA-256 de chaque fichier.
+Pour vos images locales, vous pouvez aussi utiliser l'Option A ou produire un
+manifeste équivalent ; ne poussez jamais les photos privées dans Git.
 
-Pour ajouter des négatifs Open Images, téléchargez seulement les métadonnées de
-validation nécessaires :
+Recadrez la voiture principale :
 
 ```bash
-mkdir -p datasets/metadata/open_images_v5
-curl -L -o datasets/metadata/open_images_v5/validation-annotations-bbox.csv \
-  https://storage.googleapis.com/openimages/v5/validation-annotations-bbox.csv
-curl -L -o datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
-  https://storage.googleapis.com/openimages/2018_04/validation/validation-images-with-rotation.csv
-curl -L -o datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
-  https://storage.googleapis.com/openimages/v7/oidv7-class-descriptions-boxable.csv
-
-python -m scripts.collect_open_images_negatives \
-  --annotations datasets/metadata/open_images_v5/validation-annotations-bbox.csv \
-  --metadata datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
-  --class-descriptions datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
-  --output datasets/vehicle_taxonomy_v3/open_images_negatives \
-  --vehicle-class Car \
-  --limit-per-class 200 \
-  --max-images 1000
+python -m scripts.crop_dataset \
+  --manifest datasets/my_vehicle_experiment/raw/manifest.jsonl \
+  --output datasets/my_vehicle_experiment/cropped \
+  --taxonomy config/taxonomy_vehicle_v3.json \
+  --profile config/profiles/vehicle_taxonomy_v3.json \
+  --model yolov8n.pt \
+  --device mps
 ```
 
-Le filtre exclut les boîtes intérieures et les groupes d'objets. Les candidats
-Open Images gardent leur URL, leur auteur et leur licence ; ils doivent tout de
-même passer par la revue Car Spotter avant d'intégrer `other_car`.
+Le détecteur sélectionne la voiture principale. Les photos sans voiture ou
+avec plusieurs voitures ambiguës sont marquées pour exclusion au lieu d'être
+envoyées directement à l'entraînement.
 
-Après recadrage, les trois sources peuvent être réunies dans une file de revue
-unique. Le premier manifeste reste prioritaire et les doublons SHA-256 sont
-ignorés :
+Lancez ensuite la revue humaine sur un port dédié :
 
 ```bash
-python -m scripts.merge_review_dataset \
-  --manifest datasets/vehicle_taxonomy_v3/cropped/manifest.jsonl \
-  --manifest datasets/vehicle_taxonomy_v3/new_collection/cropped/manifest.jsonl \
-  --manifest datasets/vehicle_taxonomy_v3/open_images_negatives/cropped/manifest.jsonl \
-  --decisions datasets/vehicle_taxonomy_v3/review/decisions.json \
-  --output-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
-  --output-decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json
-```
-
-Pour ouvrir cette file dans Streamlit :
-
-```bash
-export CAR_SPOTTER_REVIEW_MANIFEST=datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
-export CAR_SPOTTER_REVIEW_DECISIONS=datasets/vehicle_taxonomy_v3/review_queue/decisions.json
-export CAR_SPOTTER_REVIEW_DELETED=datasets/vehicle_taxonomy_v3/review_queue/deleted.json
+export CAR_SPOTTER_REVIEW_MANIFEST=datasets/my_vehicle_experiment/cropped/manifest.jsonl
+export CAR_SPOTTER_REVIEW_DECISIONS=datasets/my_vehicle_experiment/review/decisions.json
+export CAR_SPOTTER_REVIEW_DELETED=datasets/my_vehicle_experiment/review/deleted.json
 export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_vehicle_v3.json
 export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/vehicle_taxonomy_v3.json
 streamlit run dataset_review_app.py --server.port 8503
 ```
 
-## Construction du dataset
+Validez chaque image dans l'interface. Une image doit être acceptée uniquement
+si le véhicule est visible, exploitable et correctement classé. Les images
+supprimées sont enregistrées dans `deleted.json` et ne doivent pas être
+réintroduites silencieusement.
 
-Téléchargez d'abord un petit échantillon pour auditer la qualité des catégories :
-
-```bash
-python -m scripts.download_wikimedia \
-  --profile config/profiles/mustang_mvp.json \
-  --limit-per-category 30
-```
-
-Les images arrivent dans `datasets/raw/images` et chaque attribution est
-enregistrée dans `datasets/raw/manifest.jsonl`. La commande reprend la collecte
-sans retélécharger les fichiers déjà présents. Pour une collecte ciblée,
-`--class-slug` reste disponible à la place de `--profile`.
-
-Recadrez ensuite la voiture principale avec le détecteur COCO générique :
-
-```bash
-python -m scripts.crop_dataset \
-  --profile config/profiles/mustang_mvp.json
-```
-
-Une photo sans voiture détectée est marquée `no_detection`. Une photo avec deux
-voitures de taille comparable est marquée `ambiguous`. Ces cas ne sont pas
-envoyés à la revue. Les autres recadrages et leurs coordonnées sont consignés
-dans `datasets/cropped/manifest.jsonl`.
-
-Lancez l'interface de contrôle :
-
-```bash
-streamlit run dataset_review_app.py
-```
-
-Chaque recadrage doit être accepté, corrigé vers une autre classe du profil, ou
-rejeté. Les décisions sont sauvegardées au fil de l'eau dans
-`datasets/review/decisions.json`. Le dataset final exige par défaut une décision
-humaine positive. Le bouton « Supprimer cette image de la revue » l'exclut via
-un store séparé (`deleted.json`) sans modifier les décisions existantes ni le
-manifeste source. Cette exclusion est également appliquée lors de la préparation
-du dataset de classification.
-
-La classe `other_car` est alimentée avec des véhicules proches mais hors cible :
-Pontiac GTO, Firebird, Chevelle, Barracuda, ainsi que des versions modernes de
-nos six modèles. Ces négatifs difficiles réduisent les faux positifs.
-
-### Diversification `other_car` (V4)
-
-La campagne suivante crée une nouvelle file de candidats sans modifier les
-décisions déjà validées. Elle couvre aussi Multipla, Golf VII et Corolla E100,
-trois familles ayant généré des faux positifs dans l'évaluation terrain :
-
-```bash
-python -m scripts.download_wikimedia \
-  --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3_other_car_diversity.json \
-  --output datasets/vehicle_taxonomy_v3/other_car_diversity_wikimedia \
-  --exclude-manifest datasets/field_evaluation_v3/raw/manifest.jsonl \
-  --limit-per-category 25 \
-  --target-per-class 350
-
-python -m scripts.collect_open_images_negatives \
-  --annotations datasets/metadata/open_images_v5/validation-annotations-bbox.csv \
-  --metadata datasets/metadata/open_images_v5/validation-images-with-rotation.csv \
-  --class-descriptions datasets/metadata/open_images_v5/class-descriptions-boxable.csv \
-  --output datasets/vehicle_taxonomy_v3/other_car_diversity_open_images \
-  --vehicle-class Car \
-  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
-  --limit-per-class 300 \
-  --max-images 300
-```
-
-Les résultats doivent être recadrés, fusionnés dans la file de revue, puis
-validés avant un nouvel entraînement. Le jeu terrain `field_evaluation_v3` ne
-doit jamais être fusionné au dataset. La sélection et le statut des sources,
-dont Roboflow Universe, sont documentés dans
-[`docs/dataset_sources.md`](docs/dataset_sources.md).
-
-### Generalisation Mustang et negatifs durs (V5)
-
-Le V4 candidat a revele une regression Fastback et des faux positifs sur des
-voitures reelles. La campagne V5 collecte de nouveaux candidats Fastback et
-Hardtop, sans retelecharger une source deja revue, et ajoute les 45 negatifs
-proches prepares a partir des modes d'echec. Le jeu terrain reste exclu : il ne
-doit jamais servir a entrainer le modele.
-
-```bash
-python -m scripts.download_wikimedia \
-  --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3_mustang_generalization.json \
-  --output datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia \
-  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl \
-  --exclude-manifest datasets/field_evaluation_v3/raw/manifest.jsonl \
-  --limit-per-category 50 \
-  --target-per-class 100
-
-python -m scripts.crop_dataset \
-  --manifest datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia/manifest.jsonl \
-  --output datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia/cropped \
-  --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3_mustang_generalization.json \
-  --device mps
-
-python -m scripts.merge_review_dataset \
-  --manifest datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl \
-  --manifest datasets/vehicle_taxonomy_v3/mustang_generalization_wikimedia/cropped/manifest.jsonl \
-  --manifest datasets/vehicle_taxonomy_v3/other_car_failure_modes_wikimedia_clean/cropped/manifest.jsonl \
-  --decisions datasets/vehicle_taxonomy_v3/review_queue_v4/decisions.json \
-  --output-manifest datasets/vehicle_taxonomy_v3/review_queue_v5/cropped/manifest.jsonl \
-  --output-decisions datasets/vehicle_taxonomy_v3/review_queue_v5/decisions.json
-```
-
-Revoyez ensuite uniquement les nouveaux candidats de `review_queue_v5` avant
-de preparer un dataset V5. Les decisions V4 sont preservees.
-
-Pour préserver la progression existante, la nouvelle file est générée dans
-`review_queue_v4` plutôt que d'écraser `review_queue`. Elle réutilise les
-décisions et le registre de suppressions de la file précédente :
-
-```bash
-python -m scripts.merge_review_dataset \
-  --manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
-  --manifest datasets/vehicle_taxonomy_v3/other_car_diversity_wikimedia/cropped/manifest.jsonl \
-  --manifest datasets/vehicle_taxonomy_v3/other_car_diversity_open_images/cropped/manifest.jsonl \
-  --decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json \
-  --output-manifest datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl \
-  --output-decisions datasets/vehicle_taxonomy_v3/review_queue_v4/decisions.json
-
-export CAR_SPOTTER_REVIEW_MANIFEST=datasets/vehicle_taxonomy_v3/review_queue_v4/cropped/manifest.jsonl
-export CAR_SPOTTER_REVIEW_DECISIONS=datasets/vehicle_taxonomy_v3/review_queue_v4/decisions.json
-export CAR_SPOTTER_REVIEW_DELETED=datasets/vehicle_taxonomy_v3/review_queue/deleted.json
-export CAR_SPOTTER_REVIEW_TAXONOMY_PATH=config/taxonomy_vehicle_v3.json
-export CAR_SPOTTER_REVIEW_PROFILE_PATH=config/profiles/vehicle_taxonomy_v3.json
-streamlit run dataset_review_app.py --server.port 8504
-```
-
-Préparez et validez les splits :
+Préparez alors les splits reproductibles :
 
 ```bash
 python -m scripts.prepare_classification_dataset \
-  --manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl \
-  --output datasets/classification_vehicle_v3 \
+  --manifest datasets/my_vehicle_experiment/cropped/manifest.jsonl \
+  --decisions datasets/my_vehicle_experiment/review/decisions.json \
+  --deleted datasets/my_vehicle_experiment/review/deleted.json \
   --taxonomy config/taxonomy_vehicle_v3.json \
   --profile config/profiles/vehicle_taxonomy_v3.json \
-  --decisions datasets/vehicle_taxonomy_v3/review_queue/decisions.json \
-  --deleted datasets/vehicle_taxonomy_v3/review_queue/deleted.json \
+  --output datasets/my_vehicle_experiment/classification \
   --force
-python -m scripts.validate_classification_dataset \
-  --data datasets/classification_vehicle_v3 \
-  --taxonomy config/taxonomy_vehicle_v3.json \
-  --profile config/profiles/vehicle_taxonomy_v3.json \
-  --minimum-per-split 5
 ```
 
-Le découpage est déterministe, groupé par auteur/source et stratifié par classe
-afin de réduire les fuites entre entraînement et évaluation tout en gardant les
-classes représentées dans les trois splits. Pour un véritable modèle, visez
-bien plus que le minimum technique de cinq images par classe et par split.
-`--allow-unreviewed` existe uniquement pour les essais techniques et ne doit pas
-servir à produire le poids publié.
+La commande répartit les images en `train` (70 %), `val` (15 %) et `test`
+(15 %), en regroupant les sources pour réduire les fuites de données. Par
+défaut, seules les images ayant reçu une décision humaine positive sont
+retenues. N'utilisez `--allow-unreviewed` que pour un essai technique.
 
-## Fine-tuning V5 sur Apple Silicon
+## Réentraîner le classifieur
 
-Le V5 part du checkpoint V4 générique, qui avait les meilleurs résultats sur
-`other_car`. Les neuf couches du backbone sont gelées : le classifieur apprend
-les nouveaux exemples Fastback et Hardtop sans oublier la séparation acquise
-avec les voitures hors cible. `train_classifier.py` verrouille AdamW lorsqu'un
-taux explicite est fourni, car `optimizer=auto` remplacerait sinon ce taux.
+### Recommandation de base
+
+Pour une taxonomie différente ou un nouveau projet, partez du poids de
+classification YOLOv8 préentraîné :
 
 ```bash
 caffeinate -dimsu .venv/bin/python train_classifier.py \
-  --data datasets/classification_vehicle_v5 \
-  --model runs/classify/classic-car-classifier-v4/weights/best.pt \
+  --data datasets/classification_vehicle_custom \
+  --model yolov8s-cls.pt \
+  --device mps \
+  --epochs 50 \
+  --image-size 320 \
+  --batch-size 8 \
+  --workers 4 \
+  --patience 10 \
+  --name classic-car-classifier-custom
+```
+
+Sur Mac, `caffeinate` empêche la mise en veille pendant l'entraînement. Le
+script vérifie les splits, sélectionne automatiquement `mps` avec
+`--device auto`, utilise une seed déterministe et écrit les sorties dans :
+
+```text
+runs/classify/classic-car-classifier-custom/
+└── weights/best.pt
+```
+
+### Fine-tuner le modèle V5 fourni
+
+Si votre dataset conserve exactement les sept classes actuelles, vous pouvez
+initialiser le nouvel entraînement avec le modèle fourni. Cette stratégie
+conserve une partie des connaissances V5 tout en adaptant le modèle à vos
+photos :
+
+```bash
+caffeinate -dimsu .venv/bin/python train_classifier.py \
+  --data datasets/classification_vehicle_custom \
+  --model weights/classifier-best.pt \
   --device mps \
   --epochs 40 \
   --image-size 320 \
@@ -370,107 +422,118 @@ caffeinate -dimsu .venv/bin/python train_classifier.py \
   --learning-rate 0.0003 \
   --freeze 9 \
   --patience 10 \
-  --name classic-car-classifier-v5-final
+  --name classic-car-classifier-custom-finetune
 ```
 
-`caffeinate` maintient le Mac éveillé pendant l'entraînement. Le meilleur
-checkpoint est créé dans :
+Utilisez plutôt `yolov8s-cls.pt` si vous ajoutez ou retirez des classes, si
+vous changez fortement la taxonomie ou si vos labels ne correspondent plus au
+profil V3. `--freeze 9` et le faible taux d'apprentissage sont adaptés à un
+fine-tuning conservateur ; ils ne sont pas obligatoires pour un entraînement
+entièrement nouveau.
 
-```text
-runs/classify/classic-car-classifier-v5-final/weights/best.pt
-```
+### Valider avant de remplacer le poids actif
 
-Les résultats de l'exécution V5 sont consignés dans
-[`reports/model_v5_evaluation.md`](reports/model_v5_evaluation.md). Cette
-évaluation est adaptée à un MVP personnel, mais ne respecte pas tous les
-seuils stricts définis pour une mise en production. Le poids actif est donc
-figé comme une version expérimentale personnelle, avec un seuil applicatif de
-classification à 0,50. Le poids V3 précédent est conservé localement dans
-`weights/classifier-v3-best.pt` comme sauvegarde. Les poids ne sont pas
-versionnés dans Git.
-
-À partir de cette promotion, le backend et le dataset V5 sont gelés. Toute
-évolution future devra faire l'objet d'une nouvelle version et d'une nouvelle
-évaluation indépendante ; elle ne doit pas modifier silencieusement le poids
-actif ni les décisions du dataset publié.
-
-## Évaluation terrain indépendante
-
-Une collecte d'évaluation doit exclure toutes les sources déjà présentes dans
-le dataset de revue. L'option `--exclude-manifest` filtre les titres, pages
-sources et SHA-256 connus :
+Ne remplacez pas immédiatement le poids fourni. Vérifiez d'abord le split de
+test et un jeu terrain indépendant :
 
 ```bash
-python -m scripts.download_wikimedia \
+python -m scripts.validate_classification_dataset \
+  --data datasets/classification_vehicle_custom \
   --taxonomy config/taxonomy_vehicle_v3.json \
   --profile config/profiles/vehicle_taxonomy_v3.json \
-  --output datasets/field_evaluation_v3/raw \
-  --limit-per-category 500 \
-  --target-per-class 8 \
-  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
-```
+  --minimum-per-split 20
 
-Le lot négatif utilise des catégories hors cible dédiées, dont Fiat Multipla,
-Volkswagen Golf et Toyota Corolla :
-
-```bash
-python -m scripts.download_wikimedia \
-  --taxonomy config/taxonomy_field_evaluation_negatives.json \
-  --class-slug other_car \
-  --output datasets/field_evaluation_v3/raw \
-  --limit-per-category 8 \
-  --target-per-class 40 \
-  --exclude-manifest datasets/vehicle_taxonomy_v3/review_queue/cropped/manifest.jsonl
-```
-
-L'évaluation end-to-end choisit la plus grande voiture détectée comme sujet de
-la photo et mesure notamment le taux de faux positifs sur `other_car` :
-
-```bash
 python -m scripts.evaluate_photo_spotter \
   --manifest datasets/field_evaluation_v3/raw/manifest.jsonl \
-  --weights weights/classifier-best.pt \
+  --weights runs/classify/classic-car-classifier-custom/weights/best.pt \
   --taxonomy config/taxonomy_vehicle_v3.json \
   --device mps
 ```
 
-Les prédictions détaillées et les métriques agrégées sont écrites dans
-`reports/model_v3_field_predictions.csv` et
-`reports/model_v3_field_summary.json`.
+Le jeu `field_evaluation_v3` doit rester indépendant : il ne doit jamais être
+copié dans le dataset d'entraînement. Comparez les faux positifs `other_car`,
+les performances Fastback et Hardtop, et les erreurs par classe avant toute
+promotion.
 
-## Exécution locale
-
-Python 3.10 ou supérieur est requis.
+Après validation, conservez une sauvegarde et activez le nouveau poids :
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+cp weights/classifier-best.pt weights/classifier-backup.pt
+cp runs/classify/classic-car-classifier-custom/weights/best.pt weights/classifier-best.pt
+export CAR_SPOTTER_CLASSIFIER_PATH=weights/classifier-best.pt
 streamlit run app.py
 ```
 
-Placez le classifieur entraîné dans `weights/classifier-best.pt`, ou configurez
-un autre emplacement :
+Le fichier `weights/classifier-best.pt` est le seul checkpoint distribué par
+le dépôt. Les backups locaux et les résultats d'expériences restent ignorés
+par Git.
 
-```bash
-export CAR_SPOTTER_CLASSIFIER_PATH=/chemin/vers/best.pt
-export CAR_SPOTTER_DEVICE=mps
-streamlit run app.py
-```
+## Sources et licences du dataset
 
-Le détecteur générique utilise `yolov8n.pt` par défaut. Il peut être remplacé via
-`CAR_SPOTTER_DETECTOR_PATH`. Les autres réglages disponibles sont
-`CAR_SPOTTER_DETECTION_CONFIDENCE`, `CAR_SPOTTER_CLASSIFICATION_CONFIDENCE`,
-`CAR_SPOTTER_IOU`, `CAR_SPOTTER_DEVICE` et `CAR_SPOTTER_TAXONOMY_PATH`.
+Les sources, licences et règles de revue sont documentées dans
+[`docs/dataset_sources.md`](docs/dataset_sources.md).
+
+- Wikimedia Commons est utilisé pour les modèles ciblés et les négatifs
+  difficiles avec conservation des attributions.
+- Open Images peut compléter `other_car` avec des véhicules génériques et des
+  boîtes de détection.
+- Roboflow Universe peut fournir des pistes, mais chaque projet doit être
+  audité séparément avant intégration.
+- Stanford Cars / Cars196 est une référence de recherche et ne doit pas être
+  redistribué automatiquement dans le dataset du projet sans vérifier ses
+  conditions d'utilisation.
+
+Ne publiez pas d'images privées, de secrets, de tokens ou de données
+personnelles dans le dépôt. Le checkpoint fourni est public avec le code ; il
+peut donc être téléchargé par toute personne ayant accès au repository.
 
 ## Docker
 
-Le poids n'est pas versionné dans Git. Ajoutez-le dans
-`weights/classifier-best.pt` avant le build, puis lancez :
+Le `Dockerfile` utilise deux stages pour séparer l'installation des
+dépendances et l'image d'exécution. Le processus final tourne avec un
+utilisateur non-root et embarque le checkpoint actif fourni dans
+`weights/classifier-best.pt`.
+
+Construire l'image :
 
 ```bash
 docker build -t car-spotter-ai .
-docker run --rm -p 8501:8501 car-spotter-ai
 ```
 
-L'application est ensuite disponible sur <http://localhost:8501>.
+Lancer le conteneur :
+
+```bash
+docker run --rm --name car-spotter \
+  --publish 8501:8501 \
+  car-spotter-ai
+```
+
+Vérifier le health-check dans un autre terminal :
+
+```bash
+curl http://127.0.0.1:8501/_stcore/health
+```
+
+La réponse attendue est `ok`. L'application est alors disponible sur
+<http://localhost:8501>.
+
+## Démo publique optionnelle
+
+Le dépôt peut être déployé sur Streamlit Community Cloud en sélectionnant la
+branche `main` et le fichier `app.py`. Le checkpoint actif étant fourni dans
+Git, l'application dispose directement de ses poids. La plateforme peut
+ensuite être ajoutée au README avec une URL `streamlit.app`.
+
+GitHub Pages n'est pas adapté à l'exécution de cette application : Pages sert
+des fichiers statiques, alors que Car Spotter nécessite un processus Python,
+PyTorch et Ultralytics.
+
+## État du projet
+
+- Modèle actif : V5.
+- Mode actuel : classification de photos uniquement.
+- Tracking vidéo : prévu pour une extension future, non inclus dans le MVP.
+- Dataset d'entraînement fourni : utilisé pour le checkpoint V5, mais non
+  destiné à remplacer un dataset adapté à votre cas d'usage.
+- Toute nouvelle version du modèle doit être évaluée sur un jeu terrain
+  indépendant avant de remplacer le checkpoint actif.

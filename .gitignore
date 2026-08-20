@@ -9,3 +9,6 @@ weights/*.pt
 datasets/
 runs/
 *.jsonl
+
+# The active V5 checkpoint is distributed with the open-source demo.
+!weights/classifier-best.pt
